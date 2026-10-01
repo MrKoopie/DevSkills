@@ -1,0 +1,24 @@
+{
+  "name": "devskills",
+  "owner": {
+    "name": "DevSkills"
+  },
+  "plugins": [
+    {
+      "name": "feedback-triage",
+      "source": "./plugins/feedback-triage",
+      "description": "Validate and prioritize all GitHub PR and GitLab MR feedback."
+    },
+    {
+      "name": "laravel",
+      "source": "./plugins/laravel",
+      "description": "Practical Laravel architecture, implementation, testing, API and Filament skills."
+    },
+    {
+      "name": "app-modernization",
+      "source": "./plugins/app-modernization",
+      "description": "Plan and execute app rewrites with visual baselines, executable scenarios and independent validation."
+    }
+  ],
+  "description": "Developer skills for review and delivery workflows."
+}

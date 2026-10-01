@@ -1,0 +1,14 @@
+{
+  "name": "devskills",
+  "owner": {
+    "name": "DevSkills"
+  },
+  "plugins": [
+    {
+      "name": "feedback-triage",
+      "source": "./plugins/feedback-triage",
+      "description": "Validate and prioritize all GitHub PR and GitLab MR feedback."
+    }
+  ],
+  "description": "Developer skills for review and delivery workflows."
+}

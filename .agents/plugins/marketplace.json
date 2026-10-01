@@ -1,0 +1,44 @@
+{
+  "name": "devskills",
+  "interface": {
+    "displayName": "DevSkills"
+  },
+  "plugins": [
+    {
+      "name": "feedback-triage",
+      "source": {
+        "source": "local",
+        "path": "./plugins/feedback-triage"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "laravel",
+      "source": {
+        "source": "local",
+        "path": "./plugins/laravel"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "app-modernization",
+      "source": {
+        "source": "local",
+        "path": "./plugins/app-modernization"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

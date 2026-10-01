@@ -1,0 +1,18 @@
+{
+  "name": "app-modernization",
+  "version": "0.1.0",
+  "description": "Plan and execute app rewrites with visual baselines, executable scenarios and independent validation.",
+  "author": {
+    "name": "DevSkills"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "App Modernization",
+    "shortDescription": "Rewrite apps with proven behavior and visual baselines.",
+    "longDescription": "Two focused skills for app modernization and behavior baselines. Capture user journeys, screenshots, diagrams, technical execution and dependencies; run comparison scenarios before rewriting and reuse specialist skills for implementation and final independent validation.",
+    "developerName": "DevSkills",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": "Modernize this application while preserving its proven behavior and measuring intended improvements."
+  }
+}

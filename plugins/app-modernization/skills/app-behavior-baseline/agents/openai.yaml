@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Behavior Baseline"
+  short_description: "Capture visual flows and replayable behavior scenarios."
+  default_prompt: "Use $app-behavior-baseline to document and test this application's existing behavior before rewriting it."

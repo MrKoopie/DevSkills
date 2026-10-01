@@ -1,0 +1,4 @@
+interface:
+  display_name: "Modernize App"
+  short_description: "Coordinate app rewrites with executable behavior proof."
+  default_prompt: "Use $modernize-app to plan and execute this app rewrite while preserving behavior and measuring improvements."

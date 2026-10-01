@@ -1,0 +1,8 @@
+{
+  "name": "app-modernization",
+  "version": "0.1.0",
+  "description": "Plan and execute app rewrites with visual baselines, executable scenarios and independent validation.",
+  "author": {
+    "name": "DevSkills"
+  }
+}

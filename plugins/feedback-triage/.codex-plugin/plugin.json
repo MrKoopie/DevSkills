@@ -1,0 +1,21 @@
+{
+  "name": "feedback-triage",
+  "version": "0.1.0",
+  "description": "Complete GitHub and GitLab feedback triage with evidence-based value scoring.",
+  "author": {
+    "name": "DevSkills"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Feedback Triage",
+    "shortDescription": "Validate and prioritize PR and MR feedback.",
+    "longDescription": "Collect every page of GitHub PR or GitLab MR feedback through gh or glab, validate each claim, score its value, and process worthwhile fixes.",
+    "developerName": "DevSkills",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": "Process all feedback on this PR or MR, validate each claim, and handle worthwhile fixes and threads."
+  }
+}

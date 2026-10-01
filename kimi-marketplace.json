@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "feedback-triage",
+      "displayName": "Feedback Triage",
+      "source": "./plugins/feedback-triage"
+    }
+  ]
+}

@@ -1,5 +1,19 @@
 # DevSkills
 
+## Installation
+
+See the [installation guide](INSTALL.md) for Codex App and CLI,
+Claude Code, Cursor, Factory Droid, GitHub Copilot CLI, Kimi Code and Gemini CLI.
+Codex and Claude provide all plugins; the other packaged clients currently
+provide Feedback Triage.
+
+## Git Workflow
+
+[Pre-push Sync](plugins/git-workflow/skills/pre-push-sync/SKILL.md) fetches the target
+branch, checks incoming changes for their impact, integrates them, adapts the work,
+and validates before an authorized push. Invoke `pre-push-sync` before pushing.
+The `git-workflow` plugin shares one source across Codex and Claude.
+
 ## App Modernization
 
 [App Modernization](plugins/app-modernization/README.md) adds `modernize-app` and
@@ -14,8 +28,9 @@ generated evidence stays local and ignored. See the plugin's [usage and validati
 
 ## Laravel
 
-[Laravel](plugins/laravel/README.md) provides five skills: architecture (including
-safe refactoring), implementation and review, testing, API contracts, and Filament.
+[Laravel](plugins/laravel/README.md) provides six skills: architecture (including
+safe refactoring), implementation and review, testing, API contracts, Filament,
+and pre-commit migration/code-quality checks.
 The Codex and Claude marketplace catalogs share one source under `plugins/laravel`.
 The plugin contains no agents or delegation requirements. Project discovery is a
 short shared checklist, and detailed guidance is loaded only for the task at hand.
@@ -78,8 +93,8 @@ The shared agent and Factory droid descriptors omit tool allowlists deliberately
 ## Distribution catalogs
 
 The marketplace files reference the same `plugins/feedback-triage` source. The
-Codex and Claude catalogs additionally include `plugins/laravel` and
-`plugins/app-modernization`; the other
+Codex and Claude catalogs additionally include `plugins/laravel`,
+`plugins/app-modernization`, and `plugins/git-workflow`; the other
 catalogs currently contain Feedback Triage only:
 
 | Harness | Catalog or extension file |

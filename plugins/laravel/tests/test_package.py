@@ -72,9 +72,9 @@ class PackageTests(unittest.TestCase):
             relative = source["path"] if isinstance(source, dict) else source
             self.assertEqual(PLUGIN, (REPOSITORY / relative).resolve())
 
-    def test_five_distinct_discoverable_skills(self):
+    def test_six_distinct_discoverable_skills(self):
         skills = sorted((PLUGIN / "skills").glob("*/SKILL.md"))
-        self.assertEqual(5, len(skills))
+        self.assertEqual(6, len(skills))
         names = []
 
         for skill in skills:

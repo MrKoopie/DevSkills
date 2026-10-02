@@ -1,6 +1,6 @@
 # Laravel
 
-Five skills for Laravel application work, shared by Codex and Claude Code. This
+Six skills for Laravel application work, shared by Codex and Claude Code. This
 plugin includes no agents, delegation requirements, hooks, MCP servers, or package
 installation scripts. All workflows can be performed directly by the current
 assistant.
@@ -11,6 +11,7 @@ assistant.
 | [implement](skills/implement/SKILL.md) | Application behavior, jobs, queries, policies, Livewire, or implementation review | Correct behavior using native Laravel facilities, including failure and concurrency boundaries. |
 | [testing](skills/testing/SKILL.md) | Tests, regression coverage, or requirement verification | Observable evidence in the project's existing Pest/PHPUnit setup. |
 | [api](skills/api/SKILL.md) | Endpoints, compatibility, versioning, documentation, or retirement | A preserved or intentionally changed public contract with client-facing evidence. |
+| [pre-commit](skills/pre-commit/SKILL.md) | Before a Laravel commit | Migration consolidation decision and Pint/Larastan availability and verification results. |
 | [filament](skills/filament/SKILL.md) | Admin UI, panel actions, tenancy, or Filament upgrades | Version-correct component behavior with server-side authorization and useful UI states. |
 
 ## How they interact
@@ -25,14 +26,17 @@ developer/reviewer agent guidance into skills.
 
 Project context is not an automatic startup hook. Skills explicitly read it when
 the relevant facts are missing or have changed. Refactoring is a mode within
-architecture, not a sixth skill. Installing this plugin does not require enabling
+architecture, not a separate skill. Installing this plugin does not require enabling
 every skill for every request.
+
+The pre-commit skill is selected when the assistant prepares a Laravel commit.
+It is not a Git hook and does not intercept commits outside the assistant workflow.
 
 ## Distribution
 
 The DevSkills Codex and Claude catalogs point to this directory. The Codex manifest
 is `.codex-plugin/plugin.json`; the Claude manifest is `.claude-plugin/plugin.json`.
-Both clients consume the same five `skills/*/SKILL.md` entry points. Their display
+Both clients consume the same six `skills/*/SKILL.md` entry points. Their display
 and invocation syntax depends on the client; the intended plugin namespace is
 `laravel`, for example `laravel:api`. Verify discovery after installation.
 

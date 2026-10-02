@@ -1,7 +1,7 @@
 {
   "name": "laravel",
   "version": "0.1.0",
-  "description": "Practical Laravel architecture, implementation, testing, API and Filament skills.",
+  "description": "Practical Laravel architecture, implementation, testing, API, Filament and pre-commit skills.",
   "author": {
     "name": "DevSkills"
   }

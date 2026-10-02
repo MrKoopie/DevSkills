@@ -1,7 +1,7 @@
 {
   "name": "laravel",
   "version": "0.1.0",
-  "description": "Practical Laravel architecture, implementation, testing, API and Filament skills.",
+  "description": "Practical Laravel architecture, implementation, testing, API, Filament and pre-commit skills.",
   "author": {
     "name": "DevSkills"
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "Laravel",
     "shortDescription": "Build and review Laravel applications with focused skills.",
-    "longDescription": "Five skills for Laravel architecture and safe refactoring, implementation and review, Pest or PHPUnit testing, API contracts, and Filament. Shared project checks and evidence-based verification; no bundled agents or mandatory external tools.",
+    "longDescription": "Six skills for Laravel architecture and safe refactoring, implementation and review, Pest or PHPUnit testing, API contracts, Filament, and pre-commit migration and code-quality checks. Shared project checks and evidence-based verification; no bundled agents or mandatory external tools.",
     "developerName": "DevSkills",
     "category": "Developer Tools",
     "capabilities": [

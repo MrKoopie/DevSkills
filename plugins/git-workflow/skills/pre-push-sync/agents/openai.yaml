@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pre-push Sync"
+  short_description: "Integrate target changes and adapt work before pushing."
+  default_prompt: "Use $pre-push-sync to integrate the latest target branch, assess its impact, and verify this work before pushing."

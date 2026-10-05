@@ -1,0 +1,17 @@
+---
+name: merge-origin-main
+description: Use when updating an existing branch or worktree with the latest origin/main, including requests to merge main, bring a branch up to date, or reconcile ongoing work with upstream changes.
+---
+
+# Merge Origin Main
+
+- Confirm the current repository, branch or detached HEAD, working tree changes, and original goal of our work. Preserve uncommitted work before merging; never discard it or silently include it in a merge commit. Resolve any existing merge or rebase before starting another.
+- Fetch the latest `main` from `origin` and record its commit and our starting HEAD. Use the fetched `origin/main`, not a potentially stale local `main`. Stay in the current worktree; create a branch first if detached HEAD needs one.
+- Review changes on both sides since their merge base: what upstream changed and what our work adds. Read relevant diffs and surrounding code, including renamed or removed files, rather than relying only on commit titles or conflict markers.
+- Assess how upstream affects our work: architecture, folder structure, shared components, routes, contracts, dependencies, configuration, migrations, and tests. For UI work, also check navigation, page layout, interaction patterns, styling, and responsive behavior. Explain material impacts briefly before integrating.
+- Merge `origin/main` into our current branch. Resolve conflicts using the intent of both changes; avoid blanket ours/theirs choices. A clean Git merge still requires checking for behavioral and UX conflicts across different files. Restore any preserved local changes, resolve resulting conflicts, and include them in the combined validation.
+- Adapt our implementation to the current structure and conventions while preserving the requested behavior. Update affected callers, links, tests, fixtures, and documentation; remove duplication or obsolete paths introduced by the integration. Keep fixes within our work and its affected integration points. Ask only when competing product intentions cannot be resolved from available evidence.
+- Review the combined result against the original requirements and upstream behavior. Ensure our feature feels coherent with the current application, including permissions, validation, error states, navigation, and shared UX patterns where relevant.
+- Run the project's required checks and tests appropriate to the affected areas, including regression checks for integration fixes and a build when applicable. Exercise affected user journeys in the browser when UX is involved, including relevant responsive states. Investigate failures and rerun affected checks after fixes; distinguish pre-existing failures from new ones.
+- Fetch `origin/main` again before the final check. If it advanced, review and integrate the new changes and repeat affected validation before claiming the branch is current. Verify that the fetched upstream commit is an ancestor of the resulting HEAD, no unresolved conflicts remain, and the final diff and working tree contain only intended changes. If fetching fails or upstream keeps advancing, report the verified commit and the remaining limitation.
+- Report which upstream commit was integrated, material structural or UX changes, adaptations made, and validation results. State any failures, blocked checks, or unverified behavior explicitly. Pushing, creating a PR, merging back into main, and deployment require their own user authorization.

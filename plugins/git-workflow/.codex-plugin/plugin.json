@@ -1,17 +1,17 @@
 {
   "name": "git-workflow",
   "version": "0.1.0",
-  "description": "Integrate target-branch updates and adapt work before pushing.",
+  "description": "Integrate upstream changes and validate coherent implementation and UX.",
   "author": {
     "name": "DevSkills"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Git Workflow",
-    "shortDescription": "Sync and verify work against the latest target branch.",
+    "shortDescription": "Integrate upstream and verify behavior and UX.",
     "developerName": "DevSkills",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],
-    "defaultPrompt": "Prepare this work for pushing by integrating and checking the latest target-branch changes."
+    "defaultPrompt": "Integrate the latest upstream changes, adapt this work, and validate the combined behavior and UX."
   }
 }

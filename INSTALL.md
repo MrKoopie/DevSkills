@@ -1,13 +1,13 @@
 # Install DevSkills
 
-Install **v0.2.0** from the [published version](https://github.com/MrKoopie/DevSkills/tree/v0.2.0).
+Install **v0.3.0** from the [published version](https://github.com/MrKoopie/DevSkills/tree/v0.3.0).
 You need Git and the client you want to use. Choose the plugins you need;
 App Modernization also needs Feedback Triage for its independent final audit.
 
 | Client | Available plugins | Catalog or extension |
 | --- | --- | --- |
-| Codex App and CLI | Git Workflow, Laravel, App Modernization, Feedback Triage | [Codex catalog](.agents/plugins/marketplace.json) |
-| Claude Code | Git Workflow, Laravel, App Modernization, Feedback Triage | [Claude catalog](.claude-plugin/marketplace.json) |
+| Codex App and CLI | UX, Git Workflow, Laravel, App Modernization, Feedback Triage | [Codex catalog](.agents/plugins/marketplace.json) |
+| Claude Code | UX, Git Workflow, Laravel, App Modernization, Feedback Triage | [Claude catalog](.claude-plugin/marketplace.json) |
 | Cursor | Feedback Triage | [Cursor catalog](.cursor-plugin/marketplace.json) |
 | Factory Droid | Feedback Triage | [Factory catalog](.factory-plugin/marketplace.json) |
 | GitHub Copilot CLI | Feedback Triage | [Copilot catalog](.github/plugin/marketplace.json) |
@@ -19,11 +19,12 @@ App Modernization also needs Feedback Triage for its independent final audit.
 Register this version's Git marketplace, then install the plugins you need:
 
 ```sh
-codex plugin marketplace add MrKoopie/DevSkills --ref v0.2.0
+codex plugin marketplace add MrKoopie/DevSkills --ref v0.3.0
 codex plugin add feedback-triage@devskills
 codex plugin add laravel@devskills
 codex plugin add app-modernization@devskills
 codex plugin add git-workflow@devskills
+codex plugin add ux@devskills
 codex plugin list --marketplace devskills
 ```
 
@@ -37,11 +38,12 @@ See the [Codex plugin documentation](https://developers.openai.com/plugins/build
 Register the tagged marketplace and install the plugins you need:
 
 ```sh
-claude plugin marketplace add 'MrKoopie/DevSkills#v0.2.0'
+claude plugin marketplace add 'MrKoopie/DevSkills#v0.3.0'
 claude plugin install feedback-triage@devskills
 claude plugin install laravel@devskills
 claude plugin install app-modernization@devskills
 claude plugin install git-workflow@devskills
+claude plugin install ux@devskills
 ```
 
 Open `/plugin` in Claude Code to check the installed plugins. Start a new
@@ -56,12 +58,12 @@ in the following sections. Clone it once and run their terminal commands
 from the resulting DevSkills directory:
 
 ```sh
-git clone --depth 1 --branch v0.2.0 https://github.com/MrKoopie/DevSkills.git DevSkills
+git clone --depth 1 --branch v0.3.0 https://github.com/MrKoopie/DevSkills.git DevSkills
 cd DevSkills
 git describe --tags --exact-match
 ```
 
-The last command should print `v0.2.0`. Keep this directory in place
+The last command should print `v0.3.0`. Keep this directory in place
 when a client registers it as a local marketplace.
 
 ## Cursor

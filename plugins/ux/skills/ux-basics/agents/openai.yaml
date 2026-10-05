@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX Basics"
+  short_description: "Clarify spacing, grouping, alignment, and action hierarchy."
+  default_prompt: "Use $ux-basics to improve this UI's spacing and grouping while preserving its behavior and checking narrow widths and long content."

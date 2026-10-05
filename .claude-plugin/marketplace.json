@@ -5,9 +5,14 @@
   },
   "plugins": [
     {
+      "name": "ux",
+      "source": "./plugins/ux",
+      "description": "Basic UI spacing, grouping, alignment, and responsive layout guidance with a small before/after example."
+    },
+    {
       "name": "git-workflow",
       "source": "./plugins/git-workflow",
-      "description": "Integrate target-branch updates and adapt work before pushing."
+      "description": "Integrate upstream changes and validate coherent implementation and UX."
     },
     {
       "name": "feedback-triage",

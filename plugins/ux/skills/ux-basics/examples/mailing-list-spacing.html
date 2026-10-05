@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UX basics — Mailing lists spacing</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      color: #f1f3f5;
+      background: #101418;
+      --space-1: .25rem;
+      --space-2: .5rem;
+      --space-3: .75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --border: #3c4954;
+      --muted: #b5bfc8;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: var(--space-8); }
+    main { max-width: 72rem; margin-inline: auto; }
+    h1 { margin: 0 0 var(--space-2); font-size: 1.5rem; overflow-wrap: anywhere; }
+    .guide { max-width: 68ch; margin: 0 0 var(--space-6); color: var(--muted); line-height: 1.5; }
+    input { accent-color: #ff974c; }
+    .controls { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    label { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 2.75rem; padding: var(--space-2); cursor: pointer; }
+    input:focus-visible, button:focus-visible { outline: 3px solid #88c8ff; outline-offset: 4px; }
+    .samples { margin-top: var(--space-6); }
+    .sample > h2 { margin: 0 0 var(--space-4); font-size: 1rem; color: var(--muted); font-weight: 500; }
+    .before, .long { display: none; }
+    main:has(#before:checked) .samples .before { display: block; }
+    main:has(#before:checked) .samples .after { display: none; }
+    main:has(#long-content:checked) .samples .short { display: none; }
+    main:has(#long-content:checked) .samples .long { display: block; }
+    .modal { background: #1c2329; border: 1px solid var(--border); border-radius: 1rem; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); border-bottom: 1px solid var(--border); }
+    .modal-title { margin: 0; font-size: 1.375rem; }
+    button { font: inherit; font-weight: 650; min-height: 2.75rem; padding: var(--space-2) var(--space-4); border: 1px solid var(--border); border-radius: .5rem; background: #252f38; color: inherit; }
+    .close { background: transparent; border-color: transparent; }
+    .primary { background: #ff974c; color: #1a1714; border-color: transparent; }
+    .delete { background: transparent; border-color: #ff9c9c; color: #ff9c9c; }
+    .description, .metadata { color: var(--muted); line-height: 1.5; }
+    .list { list-style: none; margin: 0; padding: 0; }
+    .email { font-size: 1.125rem; font-weight: 650; }
+    .metadata { margin: 0; }
+    .actions { display: flex; gap: var(--space-2); }
+
+    /* Before: ample outside space, weak spacing and grouping inside. */
+    .before .modal-header { padding: 2rem; }
+    .before .modal-body { padding: 2rem 2rem 3.5rem; }
+    .before .description { margin: 0; }
+    .before .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-6); }
+    .before .metadata { margin-top: var(--space-2); }
+
+    /* After: one edge, explicit group gaps, bounded row, intrinsic height. */
+    .after .modal { max-width: 48rem; }
+    .after .modal-header, .after .modal-body { padding: var(--space-6); }
+    .after .modal-header { flex-wrap: wrap; }
+    .after .modal-body { display: grid; gap: var(--space-6); }
+    .after .intro { display: grid; justify-items: start; gap: var(--space-4); }
+    .after .description { max-width: 65ch; margin: 0; }
+    .after .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--border); border-radius: .75rem; }
+    .after .details { display: grid; gap: var(--space-1); min-width: 0; }
+    .after .email { overflow-wrap: anywhere; }
+    .after .actions { flex-wrap: wrap; flex-shrink: 0; }
+    .after button { max-width: 100%; white-space: normal; }
+    .after .modal-title { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; }
+    .note { max-width: 68ch; margin: var(--space-6) 0 0; color: var(--muted); line-height: 1.5; }
+    .note strong { color: #f1f3f5; }
+
+    @media (max-width: 38rem) {
+      body { padding: 16px; }
+      .after .modal-header, .after .modal-body { padding: 16px; }
+      .after .row { flex-direction: column; align-items: stretch; padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Space should explain the relationships.</h1>
+    <p class="guide">The same Mailing lists content in two layouts. Compare the description-to-button gap, section separation, and ownership of Edit/Delete. Resize the browser or enlarge text to check reflow.</p>
+
+    <div class="controls" role="group" aria-label="Example options">
+      <label><input id="before" name="layout" type="radio" aria-controls="samples">Before</label>
+      <label><input id="after" name="layout" type="radio" aria-controls="samples" checked>After</label>
+      <label><input id="long-content" type="checkbox" aria-controls="samples">Long content</label>
+    </div>
+
+    <div class="samples" id="samples">
+      <section class="sample before" aria-labelledby="before-caption">
+        <h2 id="before-caption">Before · the button crowds the description; row actions feel detached.</h2>
+        <div class="modal">
+          <header class="modal-header">
+            <h3 class="modal-title">Mailing lists</h3>
+            <button class="close" type="button">Close</button>
+          </header>
+          <div class="modal-body">
+            <div class="intro">
+              <p class="description">An optional subscriber list sends messages to its members and can require moderation. It is separate from forwarding an address to several recipients. Delivery and moderation below are simulations.<span class="long"> Members can have different subscription preferences, so additional explanatory text must fit without colliding with the next action.</span></p>
+              <button class="primary" type="button">Create mailing list</button>
+            </div>
+            <ul class="list">
+              <li class="row">
+                <div class="details">
+                  <div class="email"><span class="short">updates@acmedemo.nl</span><span class="long">quarterly-product-and-company-announcements@international-acmedemo.example</span></div>
+                  <p class="metadata">2 subscribers · moderation on</p>
+                </div>
+                <div class="actions">
+                  <button type="button">Edit</button>
+                  <button class="delete" type="button">Delete</button>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="sample after" aria-labelledby="after-caption">
+        <h2 id="after-caption">After · 16px within the intro; 24px before the list; actions stay with their item.</h2>
+        <div class="modal">
+          <header class="modal-header">
+            <h3 class="modal-title">Mailing lists</h3>
+            <button class="close" type="button">Close</button>
+          </header>
+          <div class="modal-body">
+            <div class="intro">
+              <p class="description">An optional subscriber list sends messages to its members and can require moderation. It is separate from forwarding an address to several recipients. Delivery and moderation below are simulations.<span class="long"> Members can have different subscription preferences, so additional explanatory text must fit without colliding with the next action.</span></p>
+              <button class="primary" type="button">Create mailing list</button>
+            </div>
+            <ul class="list">
+              <li class="row">
+                <div class="details">
+                  <div class="email"><span class="short">updates@acmedemo.nl</span><span class="long">quarterly-product-and-company-announcements@international-acmedemo.example</span></div>
+                  <p class="metadata">2 subscribers · moderation on</p>
+                </div>
+                <div class="actions">
+                  <button type="button">Edit</button>
+                  <button class="delete" type="button">Delete</button>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="note"><strong>Layout example only.</strong> Close, Create, Edit, and Delete illustrate placement; they do not change data. This is an inline comparison, not an active modal. Values are starting points: reuse your app's spacing tokens and density.</p>
+  </main>
+</body>
+</html>

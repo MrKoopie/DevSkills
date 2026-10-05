@@ -7,12 +7,28 @@ Claude Code, Cursor, Factory Droid, GitHub Copilot CLI, Kimi Code and Gemini CLI
 Codex and Claude provide all plugins; the other packaged clients currently
 provide Feedback Triage.
 
+## UX
+
+[UX Basics](plugins/ux/skills/ux-basics/SKILL.md) provides practical rules for spacing,
+grouping, alignment, readable text, and responsive layouts. The small
+[Mailing lists before/after example](plugins/ux/skills/ux-basics/examples/mailing-list-spacing.html)
+shows why generous outer padding does not fix cramped internal spacing or detached
+actions. Codex and Claude share one source; see the [plugin guide](plugins/ux/README.md).
+
 ## Git Workflow
+
+[Merge Origin Main](plugins/git-workflow/skills/merge-origin-main/SKILL.md) brings an
+existing branch up to date with `origin/main`, reviews structural and UX effects,
+adapts the feature, and validates the combined result against its original goal.
+Invoke `merge-origin-main` when reconciling ongoing work with main.
 
 [Pre-push Sync](plugins/git-workflow/skills/pre-push-sync/SKILL.md) fetches the target
 branch, checks incoming changes for their impact, integrates them, adapts the work,
 and validates before an authorized push. Invoke `pre-push-sync` before pushing.
 The `git-workflow` plugin shares one source across Codex and Claude.
+Run its package checks with
+`python3 -m unittest discover -s plugins/git-workflow/tests -p 'test_*.py' -v`.
+Neither skill grants permission to push, create a PR, merge back to main, or deploy.
 
 ## App Modernization
 
@@ -94,7 +110,7 @@ The shared agent and Factory droid descriptors omit tool allowlists deliberately
 
 The marketplace files reference the same `plugins/feedback-triage` source. The
 Codex and Claude catalogs additionally include `plugins/laravel`,
-`plugins/app-modernization`, and `plugins/git-workflow`; the other
+`plugins/app-modernization`, `plugins/git-workflow`, and `plugins/ux`; the other
 catalogs currently contain Feedback Triage only:
 
 | Harness | Catalog or extension file |

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Merge Origin Main"
+  short_description: "Integrate main and validate coherent behavior and UX"
+  default_prompt: "Use $merge-origin-main to integrate the latest origin/main, adapt our work to upstream changes, and validate the combined result."

@@ -1,0 +1,8 @@
+{
+  "name": "ux",
+  "version": "0.1.0",
+  "description": "Basic UI spacing, grouping, alignment, and responsive layout guidance with a small before/after example.",
+  "author": {
+    "name": "DevSkills"
+  }
+}

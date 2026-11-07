@@ -1,0 +1,4 @@
+interface:
+  display_name: "Watch PR events"
+  short_description: "Watch PR feedback, CI and final merge status"
+  default_prompt: "Use $watch-pr-events to process this PR's feedback and CI, keep watching after approval, and report when it is merged or closed."

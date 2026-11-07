@@ -60,6 +60,20 @@ Catalog registration prepares distribution; it does not install or publish the p
 
 [Feedback Triage](plugins/feedback-triage/skills/process-pr-feedback/SKILL.md) processes GitHub pull request and GitLab merge request feedback. It retrieves all pages through `gh` or `glab`, checks each distinct claim against the current code, scores valid suggestions, replies in each existing review thread with the pushed fix commit or a reason for not implementing, and then resolves addressed threads where possible.
 
+[Watch PR Events](plugins/feedback-triage/skills/watch-pr-events/SKILL.md) adds
+**Codex-only background follow-up on Unix hosts**. With explicit or standing
+follow-up authorization, it monitors GitHub feedback and CI, resumes the owning
+chat through a host-local daemon, and keeps watching after approval/green CI to
+report the final merge or unmerged closure. It preserves one original deadline,
+requires actual turn-completion evidence, and stops on uncertain delivery or
+interactive input. A desktop writer can delay ownership handoff; see the skill's
+runtime requirements and limits. Notification-only queue mode is also available.
+The monitor grants no extra edit, push, merge, deployment or review permissions.
+
+Run the watcher and daemon contract tests through the plugin suite:
+`python3 -B -m unittest discover -s plugins/feedback-triage/tests -p 'test_*.py'`.
+Tests use controlled GitHub/daemon responses; they do not submit live feedback.
+
 1. Install or load the plugin from `plugins/feedback-triage` in your agent harness.
 2. Invoke `process-pr-feedback` with a PR or MR URL, or provide the provider, full repository path, and number.
 3. Use `python3 plugins/feedback-triage/scripts/fetch_feedback.py github --repo OWNER/REPO --number 123` or `python3 plugins/feedback-triage/scripts/fetch_feedback.py gitlab --repo GROUP/PROJECT --number 123` for a read-only feedback inventory. Add `--host HOST` for a self-managed instance.

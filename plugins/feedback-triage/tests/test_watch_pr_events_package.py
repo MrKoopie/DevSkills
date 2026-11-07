@@ -36,7 +36,11 @@ class WatchPackageTests(unittest.TestCase):
                 PLUGIN, installed, ignore=shutil.ignore_patterns("__pycache__")
             )
             scripts = installed / "skills/watch-pr-events/scripts"
-            for name in ("test_watch.py", "test_daemon_delivery.py"):
+            for name in (
+                "test_watch.py",
+                "test_daemon_delivery.py",
+                "test_enable_daemon.py",
+            ):
                 result = subprocess.run(
                     [sys.executable, "-B", str(scripts / name)],
                     cwd=temporary,

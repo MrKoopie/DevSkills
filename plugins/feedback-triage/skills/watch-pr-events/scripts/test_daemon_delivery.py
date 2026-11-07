@@ -123,6 +123,8 @@ class DaemonTest(unittest.TestCase):
                 events = [{"id": 99, "method": "item/tool/requestUserInput"}]
             if kind == "disconnect":
                 events = [EOFError("Disconnected")]
+            if kind == "shutdown":
+                events = [SystemExit(0)]
             with (
                 patch.object(d, "RPC") as rpc,
                 patch.object(d, "history", return_value=(CONTEXT, None)),
@@ -131,6 +133,8 @@ class DaemonTest(unittest.TestCase):
                 responses = iter(replies)
 
                 def respond(*args):
+                    if kind == "expired_during_handoff" and args[0] == "thread/resume":
+                        state["deadline"] = 1
                     response = next(responses, {})
                     if isinstance(response, Exception):
                         raise response
@@ -142,7 +146,9 @@ class DaemonTest(unittest.TestCase):
                     self.assertIn("owned", d.deliver(state, "fixed metadata"))
                 else:
                     with self.assertRaises(
-                        EOFError
+                        SystemExit
+                        if kind == "shutdown"
+                        else EOFError
                         if kind == "disconnect"
                         else d.NeedsInput
                         if kind == "input"
@@ -165,14 +171,20 @@ class DaemonTest(unittest.TestCase):
                     self.assertEqual(
                         sleep.call_count, 1 if kind == "writer_busy" else 0
                     )
-                elif kind == "policy_changed":
+                elif kind in ("policy_changed", "expired_during_handoff"):
                     self.assertEqual(receipt["status"], "failed_before_start")
                     self.assertNotIn(
                         "turn/start",
                         [c.args[0] for c in rpc.return_value.call.call_args_list],
                     )
-                elif kind == "disconnect":
+                elif kind in ("disconnect", "shutdown"):
                     self.assertEqual(receipt["status"], "delivery_uncertain")
+                    if kind == "shutdown":
+                        self.assertEqual(receipt["error_type"], "SystemExit")
+                        self.assertIn(
+                            "turn/interrupt",
+                            [c.args[0] for c in rpc.return_value.call.call_args_list],
+                        )
                 elif kind == "input":
                     self.assertEqual(receipt["status"], "needs_input")
 
@@ -190,6 +202,31 @@ class DaemonTest(unittest.TestCase):
 
     def test_interactive_request_stops_owned_turn(self):
         self.delivery("input")
+
+    def test_shutdown_records_uncertainty_before_interrupting_owned_turn(self):
+        self.delivery("shutdown")
+
+    def test_deadline_expiring_during_handoff_refuses_turn_start(self):
+        self.delivery("expired_during_handoff")
+
+    def test_expired_watch_refuses_delivery_before_loading_or_starting_a_turn(self):
+        with tempfile.TemporaryDirectory() as root:
+            state = dict(
+                thread="abc",
+                state_path=str(Path(root) / "state.json"),
+                daemon_socket="local",
+                deadline=1,
+            )
+            with (
+                patch.object(d, "RPC") as rpc,
+                self.assertRaisesRegex(RuntimeError, "deadline expired"),
+            ):
+                d.deliver(state, "expired")
+            rpc.assert_not_called()
+            record = json.loads(
+                Path(state["state_path"]).with_suffix(".delivery.json").read_text()
+            )
+            self.assertEqual(record["status"], "failed_before_start")
 
     def test_websocket_fragmentation_ping_and_extended_payload(self):
         a, b = socket.socketpair()

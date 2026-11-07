@@ -98,6 +98,8 @@ def deliver(state, message):
     started = False
     turn = None
     try:
+        if time.time() >= state["deadline"]:
+            raise RuntimeError("Original watch deadline expired before delivery")
         rpc = RPC(state["daemon_socket"])
         thread = rpc.call(
             "thread/read", {"threadId": state["thread"], "includeTurns": False}
@@ -149,6 +151,8 @@ def deliver(state, message):
             or resumed["thread"]["status"]["type"] == "active"
         ):
             raise RuntimeError("Owning thread became active during handoff")
+        if time.time() >= state["deadline"]:
+            raise RuntimeError("Original watch deadline expired before turn start")
         record.update(
             status="start_pending",
             model=resumed["model"],
@@ -217,7 +221,7 @@ def deliver(state, message):
                 )
                 receipt(path, record)
                 return f"Host daemon completed turn {turn}"
-    except Exception as error:
+    except BaseException as error:
         record.update(
             status="needs_input"
             if isinstance(error, NeedsInput)

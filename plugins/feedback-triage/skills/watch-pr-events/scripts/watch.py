@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from state_io import atomic_json as atomic
+from state_io import delivery_guard
 
 
 def command(args, timeout=40):
@@ -195,7 +196,7 @@ def all_complete(snapshot):
     )
 
 
-def detect(previous, current, settled):
+def detect(previous, current, settled, reported_ready=None):
     if not current["open"]:
         return {
             "kind": "merged" if current.get("merged") else "closed",
@@ -204,7 +205,7 @@ def detect(previous, current, settled):
         }, None
     if ready(current):
         signature = readiness_signature(current)
-        if not ready(previous) or readiness_signature(previous) != signature:
+        if reported_ready != signature:
             if settled == signature:
                 return {"kind": "approved_and_green"}, None
             return None, signature
@@ -273,10 +274,14 @@ def notify(state, event):
     if state.get("delivery") == "daemon":
         from daemon_delivery import deliver
 
+        follow_up = (
+            "the host dispatcher resumes polling after this turn completes. "
+            if state.get("until_ready") and event["kind"] not in ("merged", "closed")
+            else "the host dispatcher records completion and stops this watch. "
+        )
         message += (
             " Host-daemon delivery: do not run watch.py resume from this turn; "
-            "the host dispatcher resumes polling after this turn completes. "
-            "Inspect the delivery receipt and continue only the already-authorized task."
+            f"{follow_up}Inspect the delivery receipt and continue only the already-authorized task."
         )
         if state.get("canary"):
             message = (
@@ -315,6 +320,7 @@ def run(path):
         state = json.loads(path.read_text())
         state["pid"] = os.getpid()
         state["status"] = "watching"
+        state["handoff_protocol"] = 1
         atomic(path, state)
 
     def stopped(_sig, _frame):
@@ -331,19 +337,29 @@ def run(path):
         if time.time() >= state["deadline"]:
             break
         try:
-            current = read_snapshot(
-                state["repo"],
-                state["number"],
-                state["workflows"],
-                state["actor"],
-                state.get("until_ready", False),
+            canary = state.get("canary", False)
+            # A canary executes no feedback work, so it must not consume the cursor.
+            current = (
+                state["snapshot"]
+                if canary
+                else read_snapshot(
+                    state["repo"],
+                    state["number"],
+                    state["workflows"],
+                    state["actor"],
+                    state.get("until_ready", False),
+                )
             )
-            event, next_settled = detect(state["snapshot"], current, settled)
+            event, next_settled = (
+                ({"kind": "host_self_test"}, settled)
+                if canary
+                else detect(
+                    state["snapshot"], current, settled, state.get("reported_ready")
+                )
+            )
             state["phase"] = (
                 "awaiting_merge" if ready(current) else "processing_feedback_and_ci"
             )
-            if state.get("canary"):
-                event = {"kind": "host_self_test"}
             # Keep the pre-completion snapshot for the confirming observation.
             if next_settled is None or event:
                 state["snapshot"] = current
@@ -351,35 +367,42 @@ def run(path):
             state["last_checked"] = time.time()
             state.pop("last_error", None)
             if event:
-                state["snapshot"] = current
-                state["event"] = event
-                # Persist the event before attempting a single delivery. A
-                # timeout may occur after enqueueing: never blindly retry.
-                state["status"] = "delivery_pending"
-                atomic(path, state)
-                state["delivery_started_at"] = time.time()
-                state["queue_acknowledgement"] = notify(state, event)
-                state["delivery_completed_at"] = time.time()
-                if state.get("delivery") == "daemon":
-                    state.pop("canary", None)
-                    state["status"] = "watching"
-                    state["cycles"] = state.get("cycles", 0) + 1
+                with delivery_guard(path):
+                    state["snapshot"] = current
+                    state["event"] = event
+                    # Persist the event before attempting a single delivery. A
+                    # timeout may occur after enqueueing: never blindly retry.
+                    state["status"] = "delivery_pending"
                     atomic(path, state)
-                    if event["kind"] in ("merged", "closed", "expired") or (
-                        event["kind"] == "approved_and_green"
-                        and state.get("stop_at_ready")
-                    ):
-                        state["status"] = (
-                            "complete"
-                            if event["kind"] == "approved_and_green"
-                            else event["kind"]
-                        )
+                    state["delivery_started_at"] = time.time()
+                    state["queue_acknowledgement"] = notify(state, event)
+                    state["delivery_completed_at"] = time.time()
+                    if event["kind"] == "approved_and_green":
+                        state["reported_ready"] = readiness_signature(current)
+                    if state.get("delivery") == "daemon":
+                        state.pop("canary", None)
+                        state["status"] = "watching"
+                        state["cycles"] = state.get("cycles", 0) + 1
                         atomic(path, state)
-                        return
-                    continue
-                state["status"] = "queued"
-                atomic(path, state)
-                return
+                        if (
+                            not state.get("until_ready")
+                            or event["kind"] in ("merged", "closed")
+                            or (
+                                event["kind"] == "approved_and_green"
+                                and state.get("stop_at_ready")
+                            )
+                        ):
+                            state["status"] = (
+                                event["kind"]
+                                if event["kind"] in ("merged", "closed")
+                                else "complete"
+                            )
+                            atomic(path, state)
+                            return
+                        continue
+                    state["status"] = "queued"
+                    atomic(path, state)
+                    return
         except (RuntimeError, subprocess.TimeoutExpired, OSError, ValueError) as error:
             if state["status"] == "delivery_pending":
                 state["status"] = "delivery_uncertain"
@@ -389,19 +412,9 @@ def run(path):
             state["last_error"] = type(error).__name__
             # Failed/incomplete API reads never manufacture a completion event.
         atomic(path, state)
+    # The original deadline is an execution limit, not permission to start a
+    # terminal turn that the dispatcher must immediately interrupt.
     state["status"] = "expired"
-    if state.get("until_ready"):
-        state["event"] = {"kind": "expired"}
-        state["status"] = "delivery_pending"
-        atomic(path, state)
-        try:
-            state["queue_acknowledgement"] = notify(state, state["event"])
-            state["status"] = (
-                "expired" if state.get("delivery") == "daemon" else "queued"
-            )
-        except (RuntimeError, subprocess.TimeoutExpired, OSError, ValueError) as error:
-            state["status"] = "delivery_uncertain"
-            state["last_error"] = type(error).__name__
     atomic(path, state)
 
 
@@ -517,6 +530,13 @@ def main():
                 atomic(path, previous)
             print(json.dumps({"cancel_requested": running, "state_path": str(path)}))
             return
+        if previous and previous.get("status") in (
+            "delivery_pending",
+            "delivery_uncertain",
+        ):
+            raise RuntimeError(
+                "Saved delivery is unresolved; inspect the receipt and thread before recovery"
+            )
         if previous and alive(previous):
             if args.action == "start" and (
                 bool(previous.get("until_ready")) != args.until_ready
@@ -549,6 +569,15 @@ def main():
                 )
             )
             return
+        if (
+            args.action == "start"
+            and previous
+            and previous.get("status")
+            not in ("cancelled", "expired", "complete", "closed", "merged")
+        ):
+            raise RuntimeError(
+                "Existing watch is unfinished; inspect it and resume its original deadline"
+            )
         if args.action == "resume":
             if (
                 not previous
@@ -567,6 +596,7 @@ def main():
             )
             confirmed = (
                 ready(current)
+                and state.get("reported_ready") == readiness_signature(current)
                 and ready(state["snapshot"])
                 and readiness_signature(current)
                 == readiness_signature(state["snapshot"])
@@ -626,6 +656,7 @@ def main():
                 "snapshot": snapshot,
                 "state_path": str(path),
                 "status": "starting",
+                "handoff_protocol": 1,
             }
         if args.delivery:
             state["delivery"] = args.delivery

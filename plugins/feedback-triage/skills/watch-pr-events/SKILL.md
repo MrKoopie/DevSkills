@@ -65,7 +65,9 @@ python3 <skill-dir>/scripts/watch.py start \
 ```
 
 The default polling interval is 60 seconds and the single lifetime is 24 hours.
-Use `--timeout` to shorten it. Missing expected workflows, failed/cancelled runs
+Use `--timeout` to shorten it. Expiry is recorded in state and starts no new model
+turn beyond that deadline. An already-ready PR still receives one confirmed
+readiness notification; `--stop-at-ready` stops after that delivery. Missing expected workflows, failed/cancelled runs
 and old-head approvals never qualify as ready. Reuse a matching watcher; do not
 create duplicates or extend its deadline on each continuation. Approval and green
 CI are a milestone: report readiness once, then keep watching for merge or closure.
@@ -85,7 +87,12 @@ and event cursor, and starts one host-only canary before ordinary monitoring.
 The canary targets the same authorized chat and returns a fixed marker without
 repository changes or another notification. It waits for ownership first.
 Inspect the receipt after execution; arming a canary is not proof of success.
-Pending/uncertain deliveries cannot be migrated without manual inspection.
+A shared delivery lock prevents migration from stopping a process that is entering
+or performing delivery. Live monitors without that synchronization protocol must
+be stopped and inspected before migration. The canary preserves the feedback/CI
+cursor, so events arriving before or during it still receive a processing turn.
+Pending/uncertain deliveries cannot be migrated or replaced by `start` without
+manual inspection and explicit recovery.
 
 ## Process and continue
 
@@ -132,8 +139,9 @@ and interrupt only its recorded owned turn when necessary.
 
 ## Validate
 
-Run both `scripts/test_watch.py` and `scripts/test_daemon_delivery.py` with Python.
-They use controlled GitHub/daemon responses and do not send live messages. A live
+Run `scripts/test_watch.py`, `scripts/test_daemon_delivery.py` and
+`scripts/test_enable_daemon.py` with Python. They use controlled GitHub/daemon
+responses and do not send live messages. A live
 self-test must target only the authorized owning chat. Verify matching turn
 completion in the receipt without relying on desktop queue consumption.
 

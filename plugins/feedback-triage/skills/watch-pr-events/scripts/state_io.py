@@ -1,8 +1,10 @@
 """Private atomic JSON writes with a unique temporary file for each writer."""
 
+import fcntl
 import json
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -30,3 +32,16 @@ def atomic_json(path, value):
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+@contextmanager
+def delivery_guard(path, blocking=True):
+    """Serialize migration against the entire transition into and out of delivery."""
+    with Path(path).with_suffix(".handoff.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except BlockingIOError as error:
+            raise RuntimeError(
+                "Delivery is in progress; inspect it before migration"
+            ) from error
+        yield

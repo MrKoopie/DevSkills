@@ -349,6 +349,7 @@ class WatchTest(unittest.TestCase):
                     "deadline": 50 if expected == "expired" else 1000,
                     "state_path": str(path),
                     "stop_at_ready": True,
+                    "reported_ready": w.readiness_signature(current),
                     "snapshot": current
                     if expected in ("complete", "closed")
                     else snapshot(),
@@ -679,10 +680,13 @@ class WatchTest(unittest.TestCase):
 
     def test_ready_does_not_repeat_and_new_feedback_still_triggers(self):
         good = self.approved()
-        self.assertIsNone(w.detect(good, good, None)[0])
+        self.assertIsNone(w.detect(good, good, None, w.readiness_signature(good))[0])
         changed = copy.deepcopy(good)
         changed["feedback"]["comment:42"] = "new"
-        self.assertEqual(w.detect(good, changed, None)[0]["kind"], "feedback")
+        self.assertEqual(
+            w.detect(good, changed, None, w.readiness_signature(good))[0]["kind"],
+            "feedback",
+        )
 
     def test_merge_and_unmerged_closure_are_distinct_even_with_failed_ci(self):
         for merged, kind in [(True, "merged"), (False, "closed")]:
@@ -820,6 +824,171 @@ class WatchTest(unittest.TestCase):
             self.assertIn(label, message)
             self.assertIn("Do not re-arm", message)
             self.assertNotIn("process-pr-feedback", message)
+
+    def run_state(self, state, snapshots):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            defaults = dict(
+                repo="owner/repo",
+                number=2,
+                thread="thread-id",
+                actor="me",
+                workflows=["CI"],
+                interval=0,
+                deadline=1000,
+                until_ready=True,
+                delivery="daemon",
+                snapshot=snapshot(),
+            )
+            defaults.update(state)
+            state = defaults
+            state["state_path"] = str(path)
+            w.atomic(path, state)
+            with (
+                patch.object(w.time, "time", return_value=100),
+                patch.object(w.time, "sleep"),
+                patch.object(w.signal, "signal"),
+                patch.object(w, "read_snapshot", side_effect=snapshots) as reader,
+                patch.object(w, "notify", return_value="completed") as notify,
+            ):
+                w.run(path)
+            return json.loads(path.read_text()), reader, notify
+
+    def test_canary_preserves_feedback_cursor_for_the_next_delivery(self):
+        changed = snapshot(feedback={"inline:1": "new"})
+        closed = dict(changed, open=False, merged=False)
+        state, reader, notify = self.run_state({"canary": True}, [changed, closed])
+        self.assertEqual(
+            [call.args[1]["kind"] for call in notify.call_args_list],
+            ["host_self_test", "feedback", "closed"],
+        )
+        self.assertEqual(reader.call_count, 2)
+        self.assertEqual(state["status"], "closed")
+
+    def test_one_shot_daemon_exits_after_exactly_one_delivery(self):
+        changed = snapshot(feedback={"inline:1": "new"})
+        state, reader, notify = self.run_state({"until_ready": False}, [changed])
+        self.assertEqual(state["status"], "complete")
+        self.assertEqual(reader.call_count, 1)
+        self.assertEqual(notify.call_count, 1)
+
+    def test_run_holds_the_migration_guard_through_delivery(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            w.atomic(
+                path,
+                dict(
+                    repo="owner/repo",
+                    number=2,
+                    actor="me",
+                    workflows=["CI"],
+                    interval=0,
+                    deadline=1000,
+                    until_ready=True,
+                    delivery="daemon",
+                    snapshot=snapshot(),
+                    state_path=str(path),
+                ),
+            )
+            changed = snapshot(feedback={"inline:1": "new"})
+
+            def delivery(state, event):
+                self.assertEqual(
+                    json.loads(path.read_text())["status"], "delivery_pending"
+                )
+                with self.assertRaisesRegex(RuntimeError, "Delivery is in progress"):
+                    with w.delivery_guard(path, blocking=False):
+                        self.fail("migration acquired an active delivery")
+                return "completed"
+
+            with (
+                patch.object(w.time, "time", return_value=100),
+                patch.object(w.time, "sleep"),
+                patch.object(w.signal, "signal"),
+                patch.object(
+                    w, "read_snapshot", side_effect=[changed, dict(changed, open=False)]
+                ),
+                patch.object(w, "notify", side_effect=delivery) as notify,
+            ):
+                w.run(path)
+            self.assertEqual(notify.call_count, 2)
+
+    def test_initial_ready_watch_confirms_and_stops_after_notifying_once(self):
+        good = self.approved()
+        with tempfile.TemporaryDirectory() as root:
+            path = Path(root) / "state.json"
+            w.atomic(
+                path,
+                dict(
+                    repo="owner/repo",
+                    number=2,
+                    actor="me",
+                    workflows=["CI"],
+                    interval=0,
+                    deadline=1000,
+                    until_ready=True,
+                    delivery="daemon",
+                    stop_at_ready=True,
+                    snapshot=good,
+                    state_path=str(path),
+                ),
+            )
+            with (
+                patch.object(w.time, "time", return_value=100),
+                patch.object(w.time, "sleep"),
+                patch.object(w.signal, "signal"),
+                patch.object(w, "read_snapshot", side_effect=[good, good]) as reader,
+                patch.object(w, "notify", return_value="completed") as notify,
+            ):
+                w.run(path)
+            self.assertEqual(reader.call_count, 2)
+            self.assertEqual(
+                [c.args[1]["kind"] for c in notify.call_args_list],
+                ["approved_and_green"],
+            )
+            self.assertEqual(json.loads(path.read_text())["status"], "complete")
+
+    def test_expiration_stops_cleanly_without_starting_an_overdue_notification(self):
+        state, _, notify = self.run_state({"deadline": 1}, [])
+        self.assertEqual(state["status"], "expired")
+        notify.assert_not_called()
+
+    def test_start_cannot_overwrite_an_unresolved_saved_delivery(self):
+        for status in ("delivery_pending", "delivery_uncertain"):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as root:
+                path = Path(root) / "state.json"
+                original = dict(
+                    status=status,
+                    state_path=str(path),
+                    deadline=1000,
+                    event={"kind": "feedback"},
+                )
+                w.atomic(path, original)
+                with (
+                    patch.object(
+                        w.sys,
+                        "argv",
+                        [
+                            "watch.py",
+                            "start",
+                            "--repo",
+                            "owner/repo",
+                            "--number",
+                            "2",
+                            "--thread",
+                            "thread-id",
+                            "--state",
+                            str(path),
+                        ],
+                    ),
+                    patch.object(w, "alive", return_value=False),
+                    patch.object(
+                        w, "api", side_effect=AssertionError("must not contact GitHub")
+                    ),
+                    self.assertRaises(RuntimeError),
+                ):
+                    w.main()
+                self.assertEqual(json.loads(path.read_text()), original)
 
     def test_failed_state_write_preserves_previous_json_and_removes_temporary_file(
         self,

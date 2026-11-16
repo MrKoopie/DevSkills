@@ -5,6 +5,11 @@ established in the conversation; refresh them when the checkout, dependencies,
 test configuration, or task scope changes. This is preparation, not a separate
 skill, background process, or required user interview.
 
+Apply the shared [readable-design rules](readable-design.md) to affected design,
+implementation and review work. For every refactor, including a small API, UI or
+test refactor, consult [architecture](../skills/architecture/SKILL.md) proportionally.
+Reuse an already completed check rather than recursively reloading these references.
+
 1. Read the applicable project instructions and the user's acceptance criteria.
    Ask only about unresolved choices that materially affect the result. Respect
    an explicitly selected version or architecture.

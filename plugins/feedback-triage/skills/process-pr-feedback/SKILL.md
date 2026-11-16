@@ -17,6 +17,8 @@ Use this skill when asked to process review feedback, fix review comments, or cl
 
 ## 2. Validate and prioritize
 
+For Laravel work, discover and apply the available `laravel:implement` review guidance and its shared readable-design/review-question references; use `laravel:architecture` for the proportional refactor/ownership check. Reuse that central source instead of copying its rules here. If those skills are unavailable, use the project rules and report that limitation; do not claim their checks ran. Keep investigation within the requested scope and distinguish a defect from a design preference.
+
 1. Compare each distinct claim to the current diff, code, tests, and requirements. Classify it as **Valid**, **Invalid**, **Already addressed**, **Out of scope**, or **Unverified**. Record concrete evidence; a reviewer severity label alone is not validation. Recheck any claim anchored to an older commit.
 2. Only score **Valid** claims. Rate impact, likelihood, scope fit, durability, effort, and safety from 0 to 5. Calculate `6*impact + 4*likelihood + 3*scope_fit + 3*durability + 2*effort + 2*safety` (0–100). Give one sentence of evidence per factor. High effort and safety values mean low cost and low regression risk.
 3. Recommend implementation at 75–100, investigation or a tradeoff decision at 50–74, and deferral below 50. A verified security, data loss, correctness, or required-contract defect can override the band; explain why. Invalid, already addressed, out-of-scope, and unverified claims cannot be auto-implemented regardless of score.

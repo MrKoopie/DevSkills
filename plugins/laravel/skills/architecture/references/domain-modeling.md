@@ -82,14 +82,12 @@ article fields with ordinary policy checks can use native CRUD, including in DDD
 and Filament. A class that only forwards to create(), update() or save() adds no
 business operation. Model invariants still apply on every mutation path.
 
-Use an action when it coordinates a business workflow: for example, checking
-publication eligibility, changing article state and scheduling a publication effect
-after commit. Filament calls that operation even if it is the only caller. A name
-such as PublishArticle does not justify an action when the entire behavior is a
-plain field update. Explain the responsibility beyond persistence instead of
-inventing rules or effects to justify a class. Read/list work can use queries or
-scopes. DTOs, custom builders and value objects each need an actual contract.
-Preserve existing behavior and scope when applying these distinctions to old code.
+Apply the shared [readable-design criteria](../../../references/readable-design.md)
+when choosing actions, queries and DTOs. Publication with eligibility, state change
+and after-commit effects can justify one cohesive action even with a single caller.
+A name such as PublishArticle, a forwarding call or the word workflow does not
+justify extraction. Keep simple local steps local; preserve a coherent transaction
+and existing behavior. Do not invent rules to make a class appear necessary.
 
 ## Component contracts
 
@@ -98,11 +96,11 @@ Preserve existing behavior and scope when applying these distinctions to old cod
 | Action | One cohesive business operation with explicit typed inputs/results and a responsibility beyond a bare model create/update. In layered designs, Application actions coordinate workflows and invoke Domain rules. Prefer composition and constructor injection for collaborators. In projects using the original convention, use a final class and a single public execute method; respect an established alternative such as an invokable action. Compose operations while keeping transaction ownership and side-effect ordering visible. |
 | DTO | An explicit data contract at a meaningful boundary. Prefer typed, immutable properties and typed nested values over an opaque array of mixed fields for complex action inputs. Map external/form data at the boundary; ordinary scalar parameters and known framework arrays need not become DTOs. Use the installed DTO library or a plain PHP type without adding a package solely for the pattern. |
 | Model | Own entity-specific calculations, valid-state predicates and mutations. Keep rich behavior near the state it governs; actions coordinate multi-entity workflows. Do not move all behavior into services, or put HTTP/UI concerns and provider orchestration into models. Enforce invalid-state rejection on the mutation path, not only in a can-method used by the UI. |
-| Query scope/builder | Encapsulate reusable query semantics and return a chainable, accurately typed builder. Follow installed Laravel registration conventions and static-analysis types. Do not use query helpers as a substitute for mutation invariants or resource authorization. |
+| Query scope/builder | Encapsulate reusable selection semantics and return a chainable, accurately typed builder. Follow installed Laravel registration conventions and static-analysis types. Query classes and scopes must obey the strict boundary in the shared readable-design rules, including indirect collaborators. |
 | Value object | Represent a domain value by its content rather than database identity. Validate invariants at construction, compare by value, and return new instances for changes. Prefer final immutable types, with readonly support appropriate to the project's PHP version. Named factories must preserve the same invariants as direct construction. |
 | Enum | Express a genuinely closed vocabulary with stable backed values when persisted or exposed. Preserve integer/string storage contracts; keep domain predicates close to the enum. Presentation labels/colors follow the application's existing UI boundary and must not introduce host-specific translation dependencies into a reusable domain package. |
 | Event/listener | Name a completed business fact in the past tense, such as OrderPlaced. Keep the event a meaningful data carrier and delegate a listener's business work to its owning operation. Register/discover listeners using the installed application's convention. Preserve after-commit timing, retry and deduplication semantics; an event is not an automatic reliability boundary. |
-| Entry point | Controllers, CLI commands, Livewire and Filament adapters authorize and validate input, invoke owning workflow actions, and translate results. Namespace placement follows the selected layout. Plain model create/update can use native CRUD without a wrapper action. Filament UI Actions configure interaction; Application actions own workflow orchestration in layered designs. Keep model invariants enforced across callers. API Resources own explicit response serialization. |
+| Entry point | Controllers, CLI commands, Livewire and Filament adapters authorize and validate input, execute simple local steps or invoke justified owning operations, and translate results. Namespace placement follows the selected layout. Plain model create/update can use native CRUD without a wrapper action. Filament UI Actions configure interaction; Application actions own workflow orchestration in layered designs. Keep model invariants enforced across callers. API Resources own explicit response serialization. |
 | Exception/result | Express a meaningful domain rejection with a typed exception or outcome consistent with the project. Translate it into the correct user/API response at the edge; avoid strings that callers must parse or success-shaped fallbacks that hide failures. |
 
 ## Validity is separate from representation

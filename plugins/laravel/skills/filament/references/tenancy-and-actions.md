@@ -7,14 +7,13 @@ is just a model update or create. A page that saves ordinary article fields can
 use native CRUD with validation, policy checks and trusted actor/tenant context.
 This remains true in a DDD application.
 
-Business workflows delegate to an owning action, in Application in a layered
-design. For example, article publication that checks eligibility and coordinates
-a state change with an external effect belongs in PublishArticle. Simple
-creation/editing does not automatically
-need CreateArticle/UpdateArticle. The Filament page or UI Action owns interaction,
-form validation and feedback; the business action owns workflow orchestration
-and invokes the domain's rules.
-Do not invent effects or rules to turn a plain save into an action.
+Choose local behavior versus a cohesive action using the shared
+[readable-design criteria](../../../references/readable-design.md). A publication
+operation owning eligibility, state transition and after-commit effects can merit
+an action with one caller; a dispatch-only wrapper may add no value. In an existing
+or selected layered design, Application owns orchestration. The Filament page or
+UI Action owns interaction, validation and feedback. Do not invent rules or effects
+to justify an action, and do not scatter an existing coherent transaction.
 
 When delegating to an action, replace persistence using the installed version's supported
 extension point. Filament 5 exposes handleRecordCreation on the Create page and
@@ -26,7 +25,7 @@ place and can duplicate effects or bypass the action's preconditions.
 
 Trace relationship saving and inline editable controls too: replacing the primary
 record save does not establish ownership of every related write. Route the
-feature's workflow changes through their owning actions while retaining native
+feature's workflow changes through their chosen owning operations while retaining native
 Filament authorization, form lifecycle and transaction behavior. Test the business
 operation and a relevant UI-to-operation path, including rejection with no
 unauthorized write. UI-only changes and list/view pages require no new write action.

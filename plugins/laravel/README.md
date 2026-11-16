@@ -76,6 +76,22 @@ guarded direct CRUD and explicit transaction guarantees. Refactor completion als
 checks residual models, services and UI logic against the original scope; passing
 behavior checks alone does not establish architectural completeness.
 
+## Shared readability and review rules
+
+[Readable design](references/readable-design.md) is the shared decision source for
+architecture, implementation and review. It covers framework-native choices,
+strict query boundaries, justified actions/DTOs, component inputs, bounded upstream
+improvements, lifecycle duplication, conditions and transaction readability.
+Every refactor gets a proportional architecture check, without forcing a redesign.
+
+[Review questions](references/review-questions.md) is the shared source for neutral
+review questions and supplemental CodeRabbit checks with source and evidence limits.
+[Formatting](references/formatting.md) supplies a scoped Pint
+pilot, not a silently activated project configuration. Shared
+[verification](references/verification.md) includes a safe local Playwright fallback
+when the normal browser/preview is unavailable. No installed application/plugin or
+consumer formatter is changed by these documentation rules.
+
 ## Validation
 
 From the repository root:

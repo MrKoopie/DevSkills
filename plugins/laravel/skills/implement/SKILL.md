@@ -8,6 +8,9 @@ description: Use when implementing, fixing, or reviewing Laravel application beh
 Start with [project context](../../references/project-context.md). Preserve the
 user's acceptance criteria and the existing application's conventions. Use
 framework-native behavior and add abstractions only for a concrete responsibility.
+Read and apply the shared [readable-design rules](../../references/readable-design.md)
+for implementation and review. For every refactor, consult
+[architecture](../architecture/SKILL.md) first and scale the analysis to the change.
 
 ## Implement or fix
 
@@ -21,9 +24,9 @@ framework-native behavior and add abstractions only for a concrete responsibilit
 3. Apply the smallest cohesive change. Use Form Requests and policies at HTTP
    entry points; preserve equivalent validation and authorization at Livewire,
    job, and CLI entry points as required by their trust boundary. Centralize
-   invariants in the owning model or business operation. Put business workflows
-   in owning actions even when a Filament page is the sole caller. In an existing
-   or selected layered design, Application owns workflow orchestration and Domain
+   invariants in the owning model or business operation. Choose local steps or
+   owning actions using the shared criteria, not an automatic extraction rule.
+   In an existing or selected layered design, Application owns workflow orchestration and Domain
    owns its business rules.
    Do not create an action if it is just a model update or create; preserve
    validation and authorization on the native CRUD path.
@@ -48,7 +51,7 @@ evidence-backed findings using the shared verification procedure; do not change
 code during a review-only request.
 
 Do not demand DDD folders, Pest, a new package, or a repository layer to perform
-ordinary Laravel work. If a real ownership or extraction question arises, consult
-the sibling [architecture skill](../architecture/SKILL.md). Read the
+ordinary Laravel work. Consult architecture for design/ownership questions as well
+as every refactor. Read the
 [API skill](../api/SKILL.md) for public contract changes and the
 [Filament skill](../filament/SKILL.md) for panel behavior.

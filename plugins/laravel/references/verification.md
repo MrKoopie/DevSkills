@@ -2,7 +2,10 @@
 
 Use during implementation completion or a requested review. This reference
 absorbs the useful developer/reviewer procedures without requiring an agent,
-external review service, particular model, or additional plugin.
+external review service, particular model, or additional plugin. Apply the shared
+[readable-design rules](readable-design.md) and relevant
+[review questions](review-questions.md); architecture and implementation use these
+same sources rather than maintaining separate copies.
 
 1. Compare the change with the original request and existing contract. Cover a
    normal case, the relevant denied/invalid case, and a state or failure boundary
@@ -17,7 +20,12 @@ external review service, particular model, or additional plugin.
    environment permits. For structural changes, establish and preserve the
    existing behavior baseline. Do not add tests for a label edit or tests that
    merely assert class names or directory layout.
-4. Exercise UI interactions when they change. Report browser proof separately
+4. Exercise UI interactions when they change. If the normal browser or preview
+   is unavailable or broken, try Playwright against the safe local/test application
+   using the existing setup and fixtures. Capture requested screenshots and flows;
+   do not perform real payments, domain transfers or other production effects.
+   If that fallback is also unavailable, report the blocker and unverified checks.
+   Report browser proof separately
    from component tests, and provider sandbox proof separately from HTTP fakes.
    A mock cannot establish the remote provider's behavior. An unavailable check
    remains unverified, even when other checks pass.

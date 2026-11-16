@@ -1,5 +1,12 @@
 # Safe modular refactoring
 
+The capability inventory, responsibility map and completion audit below apply to
+module-wide moves or an explicitly selected target layout. For a small local
+refactor, inspect only the affected caller, responsibility and invariants and make
+a brief retain/change decision under the shared
+[readable-design rules](../../../references/readable-design.md). Do not expand a
+local readability change into module migration.
+
 ## Scope and placement
 
 Start from the original request and the established-context comparison, not just

@@ -26,6 +26,9 @@ it is not a Git hook or authorization to commit.
 3. **Checks:** Run existing Pint check and Larastan analysis commands when usable.
    Start with non-mutating formatting checks; keep fixes within scope and rerun
    affected checks after edits. Preserve analysis coverage, levels and baselines.
+   For a requested readability/lint configuration review, evaluate the shared
+   [formatting pilot](../../references/formatting.md) without silently changing
+   project configuration or expanding formatting scope.
    Reuse verification only if it still covers the exact commit. Failed or unavailable
    checks remain unresolved; disclose them before any explicitly directed override.
 4. **Report:** Give numbered results for migration consolidation, Pint and Larastan,

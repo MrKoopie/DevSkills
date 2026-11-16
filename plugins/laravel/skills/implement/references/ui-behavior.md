@@ -17,7 +17,9 @@
    dispatched work should be described as queued, not completed. Preserve input
    after recoverable errors and reset stale dependent fields intentionally.
 6. Use component tests for state/authorization and browser checks for changed
-   interactions, focus, responsive layout, and JavaScript behavior. Report missing
-   browser access as an evidence limitation, not a reason to fabricate proof.
+   interactions, focus, responsive layout, and JavaScript behavior. Follow the
+   [verification fallback](../../../references/verification.md) when the normal
+   browser or preview fails: try Playwright locally before reporting browser proof
+   unavailable. Never fabricate screenshots or interaction evidence.
 
 Source: [Livewire documentation](https://livewire.laravel.com/docs).

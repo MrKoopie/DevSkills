@@ -9,12 +9,15 @@ Start with [project context](../../references/project-context.md). Detect the
 installed Filament, Livewire and relevant frontend versions. Inspect an existing
 resource/page and follow its registration and namespace conventions. Read official
 documentation for that major version before using component methods or hooks.
+Apply [readable design](../../references/readable-design.md) for implementation and
+review; consult [architecture](../architecture/SKILL.md) for every refactor, proportionally.
 
 1. Define the user's task and the affected normal, empty, validation/error, and
    completion states. Change the smallest appropriate resource, page, action or
    widget. Do not mandate `app/Filament` when the project registers another layout.
-2. Keep form/table/navigation configuration in Filament and delegate business
-   workflows to owning actions, in Application when the design is layered.
+2. Keep form/table/navigation configuration in Filament. Choose local behavior or
+   an owning operation using the shared criteria; preserve an existing/selected
+   layered design's Application ownership for orchestration.
    Do not create an action for a bare model update/create; use authorized,
    validated native CRUD for that case.
    Filament UI Actions configure interaction; business actions own workflows. Read

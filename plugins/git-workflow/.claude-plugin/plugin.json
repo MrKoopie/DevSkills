@@ -1,6 +1,6 @@
 {
   "name": "git-workflow",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "description": "Integrate upstream changes and validate coherent implementation and UX.",
   "author": {
     "name": "DevSkills"

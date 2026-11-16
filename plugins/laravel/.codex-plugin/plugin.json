@@ -1,6 +1,6 @@
 {
   "name": "laravel",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "description": "Practical Laravel architecture, implementation, testing, API, Filament and pre-commit skills.",
   "author": {
     "name": "DevSkills"
@@ -17,7 +17,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "Implement this Laravel change using the project\u2019s conventions.",
+      "Implement this Laravel change using the project’s conventions.",
       "Review this Laravel change for correctness and useful test coverage.",
       "Help restructure this Laravel module while preserving its behavior."
     ]

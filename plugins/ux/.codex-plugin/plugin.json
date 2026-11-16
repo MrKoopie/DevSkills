@@ -1,6 +1,6 @@
 {
   "name": "ux",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "description": "Basic UI spacing, grouping, alignment, and responsive layout guidance with a small before/after example.",
   "author": {
     "name": "DevSkills"
@@ -11,7 +11,10 @@
     "shortDescription": "Practical spacing and layout basics for everyday UI work.",
     "developerName": "DevSkills",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": "Improve this UI's spacing, grouping, and alignment using the existing design system."
   }
 }

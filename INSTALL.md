@@ -1,6 +1,6 @@
 # Install DevSkills
 
-Install **v0.3.1** from the [published version](https://github.com/MrKoopie/DevSkills/tree/v0.3.1).
+Install **v0.3.2** from the [published version](https://github.com/MrKoopie/DevSkills/tree/v0.3.2).
 You need Git and the client you want to use. Choose the plugins you need;
 App Modernization also needs Feedback Triage for its independent final audit.
 
@@ -19,7 +19,7 @@ App Modernization also needs Feedback Triage for its independent final audit.
 Register this version's Git marketplace, then install the plugins you need:
 
 ```sh
-codex plugin marketplace add MrKoopie/DevSkills --ref v0.3.1
+codex plugin marketplace add MrKoopie/DevSkills --ref v0.3.2
 codex plugin add feedback-triage@devskills
 codex plugin add laravel@devskills
 codex plugin add app-modernization@devskills
@@ -38,7 +38,7 @@ See the [Codex plugin documentation](https://developers.openai.com/plugins/build
 Register the tagged marketplace and install the plugins you need:
 
 ```sh
-claude plugin marketplace add 'MrKoopie/DevSkills#v0.3.1'
+claude plugin marketplace add 'MrKoopie/DevSkills#v0.3.2'
 claude plugin install feedback-triage@devskills
 claude plugin install laravel@devskills
 claude plugin install app-modernization@devskills
@@ -58,12 +58,12 @@ in the following sections. Clone it once and run their terminal commands
 from the resulting DevSkills directory:
 
 ```sh
-git clone --depth 1 --branch v0.3.1 https://github.com/MrKoopie/DevSkills.git DevSkills
+git clone --depth 1 --branch v0.3.2 https://github.com/MrKoopie/DevSkills.git DevSkills
 cd DevSkills
 git describe --tags --exact-match
 ```
 
-The last command should print `v0.3.1`. Keep this directory in place
+The last command should print `v0.3.2`. Keep this directory in place
 when a client registers it as a local marketplace.
 
 ## Cursor

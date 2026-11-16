@@ -1,6 +1,6 @@
 {
   "name": "git-workflow",
-  "version": "0.1.0",
+  "version": "0.3.2",
   "description": "Integrate upstream changes and validate coherent implementation and UX.",
   "author": {
     "name": "DevSkills"
@@ -11,7 +11,10 @@
     "shortDescription": "Integrate upstream and verify behavior and UX.",
     "developerName": "DevSkills",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": "Integrate the latest upstream changes, adapt this work, and validate the combined behavior and UX."
   }
 }

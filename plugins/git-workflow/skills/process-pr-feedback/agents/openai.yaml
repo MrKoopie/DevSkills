@@ -1,0 +1,4 @@
+interface:
+  display_name: "Process PR and MR Feedback"
+  short_description: "Validate and handle GitHub and GitLab review feedback."
+  default_prompt: "Use $process-pr-feedback to validate the review feedback and handle worthwhile fixes and review threads."

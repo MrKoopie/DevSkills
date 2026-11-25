@@ -1,0 +1,4 @@
+interface:
+  display_name: "Watch PR events"
+  short_description: "Watch GitHub PR or GitLab MR feedback, CI and final status"
+  default_prompt: "Use $watch-pr-events to process feedback and CI for this pull or merge request, keep watching after approval, and report when it is merged or closed."

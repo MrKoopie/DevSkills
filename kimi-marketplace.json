@@ -7,9 +7,9 @@
       "source": "./plugins/development"
     },
     {
-      "id": "feedback-triage",
-      "displayName": "Feedback Triage",
-      "source": "./plugins/feedback-triage"
+      "id": "git-workflow",
+      "displayName": "Git Workflow",
+      "source": "./plugins/git-workflow"
     }
   ]
 }

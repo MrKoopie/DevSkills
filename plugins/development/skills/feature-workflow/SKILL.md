@@ -9,8 +9,8 @@ Initialize or resume the [local feature workspace](../../references/feature-work
 
 Start at the first unfinished step. Keep the agreed request, reviewed revision,
 evidence and outstanding decisions in the conversation or existing work item.
-The full workflow uses the separately installed Feedback Triage plugin for steps
-5 and 6. If its skills are unavailable, identify the pending step.
+The full workflow uses the separately installed Git Workflow plugin for PR/MR
+feedback in step 6. If that skill is unavailable, identify the pending review.
 The developer can exercise any available increment at any time.
 
 1. **Plan.** Use [plan-feature](../plan-feature/SKILL.md) to agree the numbered requirements and complexity,
@@ -24,16 +24,19 @@ The developer can exercise any available increment at any time.
 4. **Technical peer review.** Run [technical-review](../technical-review/SKILL.md)
    on the implementation. Resolve blocking findings and obtain the independent
    recheck on any corrections before starting UX validation.
-5. **Functional and UX validation.** Use `feedback-triage:validate-original-request`
+5. **Functional and UX validation.** Use `development:validate-original-request`
    with the original issue or confirmed conversation brief and current tree.
    Preserve its independent roles and evidence requirements. Exercise normal,
    error and recovery journeys and inspect actual screens for visual changes.
    For accepted findings, revisit build, self-review and independent technical
    review on the affected changes, then revalidate the corrected candidate.
 6. **CodeRabbit and human code review.** Use the project's commit and pre-push
-   checks for an authorized PR/MR. Obtain CodeRabbit's review and a human peer
+   checks for an authorized PR/MR. After opening or updating it, use
+   `git-workflow:watch-pr-events` when ongoing follow-up is authorized and a Codex
+   host is available. Reuse the original watch after each follow-up push. Obtain
+   CodeRabbit's review and a human peer
    review. Track each separately against the submitted revision. Process both
-   sources with `feedback-triage:process-pr-feedback`. Record
+   sources with `git-workflow:process-pr-feedback`. Record
    the outcome of each claim. For fixes, return to steps 2 through 5 for the
    affected changes. Obtain current CodeRabbit and human review outcomes for
    the resulting candidate. A paused bot, an empty inbox or a missing human

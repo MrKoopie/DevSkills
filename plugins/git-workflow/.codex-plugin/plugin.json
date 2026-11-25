@@ -1,14 +1,14 @@
 {
   "name": "git-workflow",
   "version": "0.4.0",
-  "description": "Integrate upstream changes and validate coherent implementation and UX.",
+  "description": "Integrate upstream changes, verify before pushing, and process GitHub PR and GitLab MR feedback.",
   "author": {
     "name": "DevSkills"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Git Workflow",
-    "shortDescription": "Integrate upstream and verify behavior and UX.",
+    "shortDescription": "Sync branches and process PR and MR feedback.",
     "developerName": "DevSkills",
     "category": "Developer Tools",
     "capabilities": [

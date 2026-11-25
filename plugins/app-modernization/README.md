@@ -19,8 +19,8 @@ See [artifact rules](references/artifacts.md) for naming, replayable snapshots a
 
 ## Companions and clients
 
-The independent final audit requires the available `feedback-triage` plugin's
-`validate-original-request` skill and native subagents. Baseline capture works without
+The independent final audit requires `development:validate-original-request`
+and native subagents. Baseline capture works without
 that companion; a missing final audit prevents a complete independent verdict. Laravel
 rewrites use the available `laravel` architecture/implement/testing skills. Other frameworks
 use their own specialist guidance. Companions are discovered, not installed automatically.

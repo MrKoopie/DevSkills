@@ -34,7 +34,7 @@ for the current phase. A design-only request produces a proposal, not product ch
    stable; record necessary adapter changes. Test real upgrade paths when persistence
    changes. Fix regressions and rerun affected checks before dependent slices proceed.
 5. **Validate independently.** Invoke the available
-   `feedback-triage:validate-original-request` skill unchanged for final validation,
+   `development:validate-original-request` skill unchanged for final validation,
    as detailed in [comparison](../../references/compare-and-release.md). Discover it
    early; if unavailable, continue permitted baseline/implementation work and report
    the missing final audit. Do not replace its required independent reviewers with

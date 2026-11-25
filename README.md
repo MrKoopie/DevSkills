@@ -2,8 +2,8 @@
 
 ## Development
 
-Open the project you want to change in a session with Development and Feedback
-Triage loaded. Start with the issue link or describe the desired outcome:
+Open the project you want to change in a session with Development and Git
+Workflow loaded. Start with the issue link or describe the desired outcome:
 
 > Use development:feature-workflow for [issue or desired outcome]. Start by
 > mapping the functional requirements.
@@ -22,8 +22,8 @@ one concrete next action. You can also invoke any skill below on its own.
 | Implement and test | [build-and-test](plugins/development/skills/build-and-test/SKILL.md) | Check your diff and test evidence against each requirement. |
 | Review your own work | [self-review](plugins/development/skills/self-review/SKILL.md) | Hand the tested candidate to an independent reviewer. |
 | Review technical quality | [technical-review](plugins/development/skills/technical-review/SKILL.md) | Run functional and UX validation on the reviewed version. |
-| Validate functionality and UX | `feedback-triage:validate-original-request` | Submit the validated candidate for CodeRabbit and human review when authorized. |
-| Process both reviews | `feedback-triage:process-pr-feedback` | Prepare external acceptance once both reviews cover the candidate and blockers are resolved. |
+| Validate functionality and UX | `development:validate-original-request` | Submit the validated candidate for CodeRabbit and human review when authorized. |
+| Process both reviews | `git-workflow:process-pr-feedback` | Prepare external acceptance once both reviews cover the candidate and blockers are resolved. |
 | Prepare external user acceptance | [user-acceptance](plugins/development/skills/user-acceptance/SKILL.md) | Ask the external tester to run the agreed scenarios on the reviewed version and report their acceptance decision. |
 
 Keep requirements, prototypes, plans and validation versions in the [local feature workspace](plugins/development/references/feature-workspace.md).
@@ -41,7 +41,7 @@ or during implementation to restructure code while preserving observed behavior.
 See the [installation guide](INSTALL.md) for Codex App and CLI,
 Claude Code, Cursor, Factory Droid, GitHub Copilot CLI, Kimi Code and Gemini CLI.
 Codex and Claude provide all plugins; the other packaged clients currently
-provide Development and Feedback Triage.
+provide Development and Git Workflow.
 
 ## UX
 
@@ -61,10 +61,31 @@ Invoke `merge-origin-main` when reconciling ongoing work with main.
 [Pre-push Sync](plugins/git-workflow/skills/pre-push-sync/SKILL.md) fetches the target
 branch, checks incoming changes for their impact, integrates them, adapts the work,
 and validates before an authorized push. Invoke `pre-push-sync` before pushing.
-The `git-workflow` plugin shares one source across Codex and Claude.
-Run its package checks with
+Pushing, creating a PR, merging into main, and deploying require authorization.
+
+### PR and MR feedback
+
+[Process PR Feedback](plugins/git-workflow/skills/process-pr-feedback/SKILL.md) processes GitHub pull request and GitLab merge request feedback. It retrieves all pages through `gh` or `glab`, checks each distinct claim against the current code, scores valid suggestions, replies in each existing review thread with the pushed fix commit or a reason for not implementing, and then resolves addressed threads where possible.
+
+1. Install or load the plugin from `plugins/git-workflow` in your agent harness.
+2. Invoke `git-workflow:process-pr-feedback` with a PR or MR URL, or provide the provider, full repository path, and number.
+3. Use `python3 plugins/git-workflow/scripts/fetch_feedback.py github --repo OWNER/REPO --number 123` or `python3 plugins/git-workflow/scripts/fetch_feedback.py gitlab --repo GROUP/PROJECT --number 123` for a read-only feedback inventory. Add `--host HOST` for a self-managed instance.
+
+The command paths in this README assume a DevSkills checkout and must be run from its root. If the plugin is installed separately, replace `plugins/git-workflow` in each command with the absolute path to that installed plugin directory.
+
+The value score is 0–100: impact 30, likelihood 20, scope fit 15, durability 15, effort 10, and safety 10. Only independently validated claims receive a score. Scores of 75 or more generally warrant implementation; 50–74 need a tradeoff decision; lower scores are normally deferred. Verified security, data loss, correctness, and contractual issues require explicit consideration regardless of score.
+
+### PR and MR monitoring
+
+[Watch PR Events](plugins/git-workflow/skills/watch-pr-events/SKILL.md) follows an
+authorized GitHub PR or GitLab MR in its owning Codex chat. It uses `gh` or `glab`
+on the Unix execution host and routes review follow-up to `git-workflow:process-pr-feedback`.
+Approval and green CI on the current commit are a milestone. The default watch
+continues until merge, unmerged closure, or its original 24-hour deadline.
+
+Run Git Workflow's package and script checks with
 `python3 -m unittest discover -s plugins/git-workflow/tests -p 'test_*.py' -v`.
-Neither skill grants permission to push, create a PR, merge back to main, or deploy.
+Run the watcher tests from its skill's `scripts` directory with `python3 -m unittest discover`.
 
 ## App Modernization
 
@@ -92,25 +113,13 @@ See the [skill inventory and usage](plugins/laravel/README.md) and
 with `python3 -m unittest discover -s plugins/laravel/tests -p 'test_*.py' -v`.
 Catalog registration prepares distribution; it does not install or publish the plugin.
 
-## Feedback Triage
-
-[Feedback Triage](plugins/feedback-triage/skills/process-pr-feedback/SKILL.md) processes GitHub pull request and GitLab merge request feedback. It retrieves all pages through `gh` or `glab`, checks each distinct claim against the current code, scores valid suggestions, replies in each existing review thread with the pushed fix commit or a reason for not implementing, and then resolves addressed threads where possible.
-
-1. Install or load the plugin from `plugins/feedback-triage` in your agent harness.
-2. Invoke `process-pr-feedback` with a PR or MR URL, or provide the provider, full repository path, and number.
-3. Use `python3 plugins/feedback-triage/scripts/fetch_feedback.py github --repo OWNER/REPO --number 123` or `python3 plugins/feedback-triage/scripts/fetch_feedback.py gitlab --repo GROUP/PROJECT --number 123` for a read-only feedback inventory. Add `--host HOST` for a self-managed instance.
-
-The command paths in this README assume a DevSkills checkout and must be run from its root. If the plugin is installed separately, replace `plugins/feedback-triage` in each command with the absolute path to that installed plugin directory.
-
-The value score is 0–100: impact 30, likelihood 20, scope fit 15, durability 15, effort 10, and safety 10. Only independently validated claims receive a score. Scores of 75 or more generally warrant implementation; 50–74 need a tradeoff decision; lower scores are normally deferred. Verified security, data loss, correctness, and contractual issues require explicit consideration regardless of score.
-
 ## Original request validation
 
-[Validate Original Request](plugins/feedback-triage/skills/validate-original-request/SKILL.md) audits an implemented change against its original work item or a user-confirmed conversation brief. Three fresh native subagents separately review functionality and UX, end-to-end business/user processes, and technical quality. The primary validator exercises feature flows and wrong inputs, adds missing negative tests to the project's normal suite, and reconciles all three reviews in one local report under `.ai/triage/`. For visual changes, the report embeds actual browser screenshots of normal, error, and recovery states alongside correlated background I/O. Generated reports and screenshots stay out of Git.
+[Validate Original Request](plugins/development/skills/validate-original-request/SKILL.md) audits an implemented change against its original work item or a user-confirmed conversation brief. Three fresh native subagents separately review functionality and UX, end-to-end business/user processes, and technical quality. The primary validator exercises feature flows and wrong inputs, adds missing negative tests to the project's normal suite, and reconciles all three reviews in one local report under `.ai/triage/`. For visual changes, the report embeds actual browser screenshots of normal, error, and recovery states alongside correlated background I/O. Generated reports and screenshots stay out of Git.
 
-1. Load the `feedback-triage` plugin in a harness with native subagent support, then invoke `validate-original-request` with the target repository, base/head commit SHAs, and issue URL or identifier when available. Supply project run instructions and the available browser environment.
-2. For GitHub or GitLab, the parent collects the complete issue and comments with `python3 plugins/feedback-triage/scripts/fetch_issue.py github --repo OWNER/REPO --number 123` or the corresponding `gitlab` command. Add `--host HOST` for a self-managed instance. Other trackers require an available CLI or connector. If the issue is missing, inaccessible, or incomplete, the parent presents a reconstructed full-conversation brief and waits for your confirmation before launching the subagents.
-3. Review the single report's functional, UX, business/process, and technical verdicts, blocking findings, and any new project tests. Before committing validation-related source changes, run `python3 plugins/feedback-triage/scripts/check_validation_artifacts.py --repo PATH` to reject staged or tracked `.ai/triage/` artifacts.
+1. Load the `development` plugin in a harness with native subagent support, then invoke `development:validate-original-request` with the target repository, base/head commit SHAs, and issue URL or identifier when available. Supply project run instructions and the available browser environment.
+2. For GitHub or GitLab, the parent collects the complete issue and comments with `python3 plugins/development/scripts/fetch_issue.py github --repo OWNER/REPO --number 123` or the corresponding `gitlab` command. Add `--host HOST` for a self-managed instance. Other trackers require an available CLI or connector. If the issue is missing, inaccessible, or incomplete, the parent presents a reconstructed full-conversation brief and waits for your confirmation before launching the subagents.
+3. Review the single report's functional, UX, business/process, and technical verdicts, blocking findings, and any new project tests. Before committing validation-related source changes, run `python3 plugins/development/scripts/check_validation_artifacts.py --repo PATH` to reject staged or tracked `.ai/triage/` and `.ai/work/` artifacts.
 
 ## Validation harness capabilities
 
@@ -128,26 +137,24 @@ Capability snapshot for the original single-validator route: **2026-09-24**. `ve
 
 Three-reviewer update, **2026-09-25**: Codex App launched the read-only business and technical reviewers with matching source, head SHA, and clean-tree snapshot, then launched the primary independently and reconciled their returns into one ignored report at the validated revision. This verifies the nonvisual three-role route in Codex App for this repository. Visual evidence and the three-role route in the other harnesses remain untested.
 
-Use the loaded harness's native tool schema. `HANDOFF` below means the same compact JSON for all three roles, including the exact pre-existing working-tree manifest when the target is dirty. `CONTRACT` means the installed path to the corresponding [primary](plugins/feedback-triage/skills/validate-original-request/references/subagent-contract.md), [business/process](plugins/feedback-triage/skills/validate-original-request/references/business-process-contract.md), or [technical](plugins/feedback-triage/skills/validate-original-request/references/technical-contract.md) contract. For named agent tools, dispatch `validate-business-process` and `validate-technical-implementation` from the parent and wait for both before dispatching `validate-original-request`. Reconcile their returns in the one report. The parent handles orchestration because some harnesses prohibit nested subagents. Resolve the source and any required user confirmation before dispatch. If a required role cannot run, disclose the missing review and do not claim a complete audit verdict.
+Use the loaded harness's native tool schema. `HANDOFF` below means the same compact JSON for all three roles, including the exact pre-existing working-tree manifest when the target is dirty. `CONTRACT` means the installed path to the corresponding [primary](plugins/development/skills/validate-original-request/references/subagent-contract.md), [business/process](plugins/development/skills/validate-original-request/references/business-process-contract.md), or [technical](plugins/development/skills/validate-original-request/references/technical-contract.md) contract. For named agent tools, dispatch `validate-business-process` and `validate-technical-implementation` from the parent and wait for both before dispatching `validate-original-request`. Reconcile their returns in the one report. The parent handles orchestration because some harnesses prohibit nested subagents. Resolve the source and any required user confirmation before dispatch. If a required role cannot run, disclose the missing review and do not claim a complete audit verdict.
 
 | Harness | Documented dispatch and adapter | Documented visual route (not execution proof) |
 | --- | --- | --- |
 | Codex | Current V2 `spawn_agent({task_name: "original_request_audit", fork_turns: "none", message: "Read CONTRACT and audit HANDOFF"})`; use the native wait/return tools. Older tool schemas differ; never pass an unsupported history flag or inherit the full conversation. [Official tool implementation](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs). | An available browser tool in the App, or a configured browser MCP server in CLI; inspect the actual child tool surface. [MCP configuration](https://developers.openai.com/codex/mcp). |
-| Claude Code | Load `--plugin-dir /absolute/plugin/path`; ask “Use the feedback-triage:validate-original-request subagent with HANDOFF.” Native `Agent` (named `Task` by this installed build) takes `subagent_type`, `description`, and `prompt`. The plugin's `agents/validate-original-request.md` supplies the contract. `--agent` alone selects the main agent and does not prove delegation. [Subagents](https://code.claude.com/docs/en/sub-agents), [plugin agents](https://code.claude.com/docs/en/plugins-reference). | Configured Playwright MCP inherited by the child, or Chrome integration where available. [Browser MCP example](https://code.claude.com/docs/en/sub-agents), [Chrome](https://code.claude.com/docs/en/chrome). |
+| Claude Code | Load `--plugin-dir /absolute/plugin/path`; ask “Use the development:validate-original-request subagent with HANDOFF.” Native `Agent` (named `Task` by this installed build) takes `subagent_type`, `description`, and `prompt`. The plugin's `agents/validate-original-request.md` supplies the contract. `--agent` alone selects the main agent and does not prove delegation. [Subagents](https://code.claude.com/docs/en/sub-agents), [plugin agents](https://code.claude.com/docs/en/plugins-reference). | Configured Playwright MCP inherited by the child, or Chrome integration where available. [Browser MCP example](https://code.claude.com/docs/en/sub-agents), [Chrome](https://code.claude.com/docs/en/chrome). |
 | Cursor | Ask Agent “Launch a fresh subagent to read CONTRACT and audit HANDOFF; return the contract return block.” Use its exposed task tool; official ACP `cursor/task` is a notification, not a callable launcher. No extra plugin descriptor is required for task-prompt delegation. [Subagents](https://cursor.com/docs/subagents), [ACP](https://cursor.com/docs/cli/acp). | Built-in browser subagent / browser MCP. Verify availability to the validator and return correlated evidence. [CLI MCP](https://cursor.com/docs/cli/mcp). |
 | Factory Droid | `Task({subagent_type: "validate-original-request", description: "Validate original request", prompt: HANDOFF})`; plugin discovery uses `droids/validate-original-request.md`. [Task schema](https://docs.factory.ai/cli/configuration/custom-droids), [plugin layout](https://docs.factory.ai/guides/building/building-plugins). | Configured MCP or `agent-browser` through the shell; separately collect correlated I/O. [Automated QA](https://docs.factory.ai/guides/skills/automated-qa). |
 | GitHub Copilot CLI | `task(agent_type="validate-original-request", ...)` with HANDOFF as the task prompt in the loaded tool schema; plugin `agents/` accepts `.md` as well as `.agent.md`, so the shared descriptor suffices. Verify discovery using `/agent`. [Plugin agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-creating), [CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference), [task dispatch](https://docs.github.com/en/copilot/how-tos/copilot-sdk/features/fleet-mode). | Configured browser MCP; inspect tools with `copilot mcp get NAME`. Do not assume the cloud agent's default Playwright setup exists in CLI. [CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference). |
 | Kimi Code | `Agent({subagent_type: "validate-original-request", description: "Validate original request", prompt: HANDOFF})`; plugin discovery uses the shared `agents/` descriptor. [Agent tools](https://github.com/moonshotai/kimi-code/blob/main/docs/en/reference/tools.md), [plugin discovery](https://github.com/moonshotai/kimi-code/blob/main/docs/en/customization/plugins.md). | A configured browser MCP server inherited by the child; no browser is bundled here. [MCP/plugin configuration](https://github.com/moonshotai/kimi-code/blob/main/docs/en/customization/plugins.md). |
 | Gemini CLI | Extension `agents/*.md` exposes each agent as a tool of its declared name. Call the discovered `validate-original-request` tool with HANDOFF in its task input; inspect its generated schema. The shared descriptor needs no extra extension-local path. [Extension reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/extensions/reference.md), [subagents](https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md). | Grant a configured browser MCP to the validator. The optional `browser_agent` is disabled by default and subagents cannot call other subagents, so enabling it alone does not give the validator visual proof. [Subagents and browser configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md). |
 
-The shared agent and Factory droid descriptors omit tool allowlists deliberately: their documented defaults inherit tools for shell tests and configured MCP access. The primary role owns normal-suite test edits, local reports, and browser proof; the two specialist roles are read-only. Each descriptor points to its contract rather than duplicating the procedure. Host policy can still restrict tools; missing required proof remains Unverified. The [report template](plugins/feedback-triage/skills/validate-original-request/references/report-template.md) and artifact guard apply to every harness.
+The shared agent and Factory droid descriptors omit tool allowlists deliberately: their documented defaults inherit tools for shell tests and configured MCP access. The primary role owns normal-suite test edits, local reports, and browser proof; the two specialist roles are read-only. Each descriptor points to its contract rather than duplicating the procedure. Host policy can still restrict tools; missing required proof remains Unverified. The [report template](plugins/development/skills/validate-original-request/references/report-template.md) and artifact guard apply to every harness.
 
 ## Distribution catalogs
 
-The marketplace files reference the same `plugins/development` and `plugins/feedback-triage` sources. The
-Codex and Claude catalogs additionally include `plugins/laravel`,
-`plugins/app-modernization`, `plugins/git-workflow`, and `plugins/ux`; the other
-catalogs currently contain Development and Feedback Triage:
+All catalogs provide Development and Git Workflow. The Codex and Claude
+catalogs also provide Laravel, App Modernization, and UX.
 
 | Harness | Catalog or extension file |
 | --- | --- |

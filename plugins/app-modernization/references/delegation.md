@@ -21,9 +21,9 @@ allows the parent to capture the baseline directly, with no independent-review c
 Load companion framework skills only for their actual phase. Laravel uses `laravel`'s
 architecture/implement/testing skills. Other frameworks use available equivalents and
 their current primary documentation. The independent final audit specifically needs the
-available `feedback-triage` validator and its own agents/contract; never replace missing
-required roles with this discovery agent. Companion plugins are resolved at runtime and
-are not installed automatically.
+available `development:validate-original-request` skill and its agents and contracts.
+Never replace missing required roles with this discovery agent. Companion plugins
+are resolved at runtime and are not installed automatically.
 
 Packaging describes discovery paths, not verified client/runtime capability. Record actual
 successful delegation, browser use and returned evidence separately when testing a host.

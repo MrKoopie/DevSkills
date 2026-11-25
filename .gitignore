@@ -1,1 +1,3 @@
 /.ai/triage/
+__pycache__/
+*.pyc

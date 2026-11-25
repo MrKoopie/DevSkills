@@ -1,28 +1,30 @@
 # Install DevSkills
 
-Install **v0.4.0** from the [published version](https://github.com/MrKoopie/DevSkills/tree/v0.4.0).
-You need Git and the client you want to use. Choose the plugins you need;
-The full Development workflow uses Feedback Triage for functional and UX validation
-and PR/MR feedback. App Modernization also needs Feedback Triage for its independent final audit.
+Run these commands from the root of the DevSkills checkout you want to install.
+Keep that directory in place when a client registers it as a local marketplace.
+For the published `v0.4.0` release, use its [installation guide](https://github.com/MrKoopie/DevSkills/blob/v0.4.0/INSTALL.md).
+
+The full Development workflow uses Git Workflow for PR/MR feedback.
+App Modernization uses Development for its independent final audit.
+Git Workflow's background PR/MR watch requires Codex on a Unix host.
 
 | Client | Available plugins | Catalog or extension |
 | --- | --- | --- |
-| Codex App and CLI | Development, UX, Git Workflow, Laravel, App Modernization, Feedback Triage | [Codex catalog](.agents/plugins/marketplace.json) |
-| Claude Code | Development, UX, Git Workflow, Laravel, App Modernization, Feedback Triage | [Claude catalog](.claude-plugin/marketplace.json) |
-| Cursor | Development, Feedback Triage | [Cursor catalog](.cursor-plugin/marketplace.json) |
-| Factory Droid | Development, Feedback Triage | [Factory catalog](.factory-plugin/marketplace.json) |
-| GitHub Copilot CLI | Development, Feedback Triage | [Copilot catalog](.github/plugin/marketplace.json) |
-| Kimi Code | Development, Feedback Triage | [Kimi catalog](kimi-marketplace.json) |
-| Gemini CLI | Development, Feedback Triage | [Development](plugins/development/gemini-extension.json) and [Feedback Triage](plugins/feedback-triage/gemini-extension.json) |
+| Codex App and CLI | Development, Git Workflow, UX, Laravel, App Modernization | [Codex catalog](.agents/plugins/marketplace.json) |
+| Claude Code | Development, Git Workflow, UX, Laravel, App Modernization | [Claude catalog](.claude-plugin/marketplace.json) |
+| Cursor | Development, Git Workflow | [Cursor catalog](.cursor-plugin/marketplace.json) |
+| Factory Droid | Development, Git Workflow | [Factory catalog](.factory-plugin/marketplace.json) |
+| GitHub Copilot CLI | Development, Git Workflow | [Copilot catalog](.github/plugin/marketplace.json) |
+| Kimi Code | Development, Git Workflow | [Kimi catalog](kimi-marketplace.json) |
+| Gemini CLI | Development, Git Workflow | [Development](plugins/development/gemini-extension.json) and [Git Workflow](plugins/git-workflow/gemini-extension.json) |
 
 ## Codex App and CLI
 
-Register this version's Git marketplace, then install the plugins you need:
+Register the local marketplace, then install the plugins you need:
 
 ```sh
-codex plugin marketplace add MrKoopie/DevSkills --ref v0.4.0
+codex plugin marketplace add "$PWD"
 codex plugin add development@devskills
-codex plugin add feedback-triage@devskills
 codex plugin add laravel@devskills
 codex plugin add app-modernization@devskills
 codex plugin add git-workflow@devskills
@@ -32,17 +34,15 @@ codex plugin list --marketplace devskills
 
 For the desktop app, restart it, open the Plugins Directory, select DevSkills
 and install the desired plugins. Start a new chat to load installed skills.
-The Git marketplace is pinned to this version; refreshing it retains that pin.
 See the [Codex plugin documentation](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli).
 
 ## Claude Code
 
-Register the tagged marketplace and install the plugins you need:
+Register the local marketplace and install the plugins you need:
 
 ```sh
-claude plugin marketplace add 'MrKoopie/DevSkills#v0.4.0'
+claude plugin marketplace add "$PWD"
 claude plugin install development@devskills
-claude plugin install feedback-triage@devskills
 claude plugin install laravel@devskills
 claude plugin install app-modernization@devskills
 claude plugin install git-workflow@devskills
@@ -51,37 +51,21 @@ claude plugin install ux@devskills
 
 Open `/plugin` in Claude Code to check the installed plugins. Start a new
 session, then invoke a skill such as `/laravel:architecture` or
-`/feedback-triage:process-pr-feedback`.
+`/git-workflow:process-pr-feedback`.
 See the [Claude plugin installation guide](https://code.claude.com/docs/en/plugins/install).
-
-## Checkout for local installation
-
-Factory Droid, Copilot CLI, Kimi Code and Gemini CLI use the released checkout
-in the following sections. Clone it once and run their terminal commands
-from the resulting DevSkills directory:
-
-```sh
-git clone --depth 1 --branch v0.4.0 https://github.com/MrKoopie/DevSkills.git DevSkills
-cd DevSkills
-git describe --tags --exact-match
-```
-
-The last command should print `v0.4.0`. Keep this directory in place
-when a client registers it as a local marketplace.
 
 ## Cursor
 
 1. Open **Customize** and select **From GitHub Repository**.
 2. Enter `https://github.com/MrKoopie/DevSkills` and import its plugin marketplace.
-3. Install Development and Feedback Triage and confirm their skills appear in Customize.
+3. Install Development and Git Workflow and confirm their skills appear in Customize.
 
-Use the published `main` branch for this import. It contains the latest snapshot;
-the CLI examples instead pin the version shown above. See the
+This import uses the published `main` branch. See the
 [Cursor installation documentation](https://cursor.com/docs/skills#installing-skills-from-a-repository).
 
 ## Factory Droid
 
-From the released checkout:
+From the local checkout:
 
 ```sh
 droid plugin marketplace add .
@@ -96,7 +80,7 @@ Factory derives it from the source, so it may differ from the catalog's
 printf 'Registered marketplace name: '
 read -r marketplace_name
 droid plugin install "development@$marketplace_name"
-droid plugin install "feedback-triage@$marketplace_name"
+droid plugin install "git-workflow@$marketplace_name"
 droid plugin list
 ```
 
@@ -105,12 +89,12 @@ Start a new Droid session to load the plugin. See the
 
 ## GitHub Copilot CLI
 
-From the released checkout:
+From the local checkout:
 
 ```sh
 copilot plugin marketplace add .
 copilot plugin install development@devskills
-copilot plugin install feedback-triage@devskills
+copilot plugin install git-workflow@devskills
 copilot plugin list
 ```
 
@@ -119,11 +103,11 @@ Start a new Copilot session and check the installed plugin. See the
 
 ## Kimi Code
 
-Start `kimi` from the released checkout. In its TUI, run:
+Start `kimi` from the local checkout. In its TUI, run:
 
 ```text
 /plugins install ./plugins/development
-/plugins install ./plugins/feedback-triage
+/plugins install ./plugins/git-workflow
 /plugins list
 /reload
 ```
@@ -135,11 +119,11 @@ See the [Kimi plugin documentation](https://moonshotai.github.io/kimi-code/en/cu
 
 ## Gemini CLI
 
-From the released checkout, install each extension from its own directory:
+From the local checkout, install each extension from its own directory:
 
 ```sh
 gemini extensions install ./plugins/development
-gemini extensions install ./plugins/feedback-triage
+gemini extensions install ./plugins/git-workflow
 gemini extensions list
 ```
 

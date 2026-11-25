@@ -25,7 +25,7 @@ Do not infer improvement from changed pixels, code cleanliness or aggregate test
 
 ## Independent final audit
 
-Discover `feedback-triage:validate-original-request` from the installed skill catalog and
+Discover `development:validate-original-request` from the installed skill catalog and
 read its actual contract; do not hardcode sibling plugin/cache paths. It owns source
 resolution, three-role sequencing, snapshot identity, negative testing, report reconciliation
 and final screenshot inspection. Invoke it unchanged at final validation (or an expressly

@@ -224,6 +224,27 @@ class FetchIssueTests(unittest.TestCase):
 
                 run.assert_not_called()
 
+    def test_missing_provider_cli_aborts_without_partial_source(self):
+        for provider in ("github", "gitlab"):
+            with self.subTest(provider=provider):
+                stdout = io.StringIO()
+
+                with patch.object(fetch_issue.subprocess, "run", side_effect=FileNotFoundError("missing CLI")):
+                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(io.StringIO()):
+                        result = fetch_issue.main([provider, "--repo", "o/r", "--number", "1"])
+
+                self.assertEqual(result, 1)
+                self.assertEqual(stdout.getvalue(), "")
+
+    def test_issue_input_omission_and_malformed_number_never_call_provider(self):
+        for argv in (["github"], ["github", "--repo", "o/r", "--number", "one"]):
+            with self.subTest(argv=argv):
+                with patch.object(fetch_issue.subprocess, "run") as run:
+                    with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                        fetch_issue.main(argv)
+
+                run.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

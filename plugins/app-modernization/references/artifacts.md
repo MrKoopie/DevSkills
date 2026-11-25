@@ -27,7 +27,7 @@ contains `/.ai/triage/`, preserve existing rules and verify from that root:
 git check-ignore -q --no-index -- .ai/triage/ignore-probe.md
 ```
 
-Before any associated commit, run the discovered `feedback-triage` plugin's
+Before any associated commit, run the discovered `development` plugin's
 `scripts/check_validation_artifacts.py --repo <target-root>`. Resolve that plugin
 through the available skill catalog; do not assume a sibling installation path.
 If unavailable, inspect `git ls-files -z -- .ai/triage` from the target root; any

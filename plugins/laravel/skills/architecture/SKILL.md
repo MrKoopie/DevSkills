@@ -52,6 +52,8 @@ For component contracts and boundaries, read
 
 ## Refactor existing code
 
+When installed, `development:refactor` provides the standalone refactoring
+workflow. Apply the Laravel-specific placement and compatibility checks here.
 Read [safe refactoring](references/refactoring.md) for responsibility/namespace
 moves. Preserve behavior and invariants through bounded slices. Package extraction
 is a separate scope decision requiring consumer proof.

@@ -1,0 +1,10 @@
+{
+  "name": "development",
+  "version": "0.4.0",
+  "description": "Plan, implement, independently review and refactor framework-neutral changes.",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Development",
+    "shortDescription": "Plan, build and review features."
+  }
+}

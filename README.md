@@ -1,11 +1,47 @@
 # DevSkills
 
+## Development
+
+Open the project you want to change in a session with Development and Feedback
+Triage loaded. Start with the issue link or describe the desired outcome:
+
+> Use development:feature-workflow for [issue or desired outcome]. Start by
+> mapping the functional requirements.
+
+The first response gives you the full requirements table, difficulty per ID and
+open questions. Confirm the table or correct specific IDs. Each workflow update shows a two-row Mermaid diagram marking completed
+steps. A thick border and a “current” label highlight the active stage. Build, self-review, independent technical review
+and functional/UX review each produce a separate chat update with results and
+one concrete next action. You can also invoke any skill below on its own.
+
+| Step | Skill | Suggested next action when ready |
+| --- | --- | --- |
+| Define and size requirements | [plan-feature](plugins/development/skills/plan-feature/SKILL.md) | Confirm the table or correct a requirement by ID. |
+| Walk through the flow and prototype | plan-feature | Try the scenario and confirm the behavior to start technical planning. |
+| Review the database and file plan | plan-feature + independent plan reviewer | Build the independently reviewed plan. |
+| Implement and test | [build-and-test](plugins/development/skills/build-and-test/SKILL.md) | Check your diff and test evidence against each requirement. |
+| Review your own work | [self-review](plugins/development/skills/self-review/SKILL.md) | Hand the tested candidate to an independent reviewer. |
+| Review technical quality | [technical-review](plugins/development/skills/technical-review/SKILL.md) | Run functional and UX validation on the reviewed version. |
+| Validate functionality and UX | `feedback-triage:validate-original-request` | Submit the validated candidate for CodeRabbit and human review when authorized. |
+| Process both reviews | `feedback-triage:process-pr-feedback` | Prepare external acceptance once both reviews cover the candidate and blockers are resolved. |
+| Prepare external user acceptance | [user-acceptance](plugins/development/skills/user-acceptance/SKILL.md) | Ask the external tester to run the agreed scenarios on the reviewed version and report their acceptance decision. |
+
+Keep requirements, prototypes, plans and validation versions in the [local feature workspace](plugins/development/references/feature-workspace.md).
+
+When Superpowers executes the plan, each implementer receives the applicable
+DevSkills for writing, testing and reviewing their code. A fresh reviewer applies
+the technical review skill to the combined change before functional/UX validation.
+Developers can test intermediate versions throughout.
+
+Use [refactor](plugins/development/skills/refactor/SKILL.md) independently
+or during implementation to restructure code while preserving observed behavior.
+
 ## Installation
 
 See the [installation guide](INSTALL.md) for Codex App and CLI,
 Claude Code, Cursor, Factory Droid, GitHub Copilot CLI, Kimi Code and Gemini CLI.
 Codex and Claude provide all plugins; the other packaged clients currently
-provide Feedback Triage.
+provide Development and Feedback Triage.
 
 ## UX
 
@@ -108,10 +144,10 @@ The shared agent and Factory droid descriptors omit tool allowlists deliberately
 
 ## Distribution catalogs
 
-The marketplace files reference the same `plugins/feedback-triage` source. The
+The marketplace files reference the same `plugins/development` and `plugins/feedback-triage` sources. The
 Codex and Claude catalogs additionally include `plugins/laravel`,
 `plugins/app-modernization`, `plugins/git-workflow`, and `plugins/ux`; the other
-catalogs currently contain Feedback Triage only:
+catalogs currently contain Development and Feedback Triage:
 
 | Harness | Catalog or extension file |
 | --- | --- |
@@ -121,7 +157,7 @@ catalogs currently contain Feedback Triage only:
 | Factory Droid | `.factory-plugin/marketplace.json` |
 | GitHub Copilot CLI | `.github/plugin/marketplace.json` |
 | Kimi Code | `kimi-marketplace.json` |
-| Gemini CLI | `plugins/feedback-triage/gemini-extension.json` (extension manifest; no marketplace file) |
+| Gemini CLI | `gemini-extension.json` in each supported plugin directory |
 
 Grok Build and Qwen Code can consume the Claude Code marketplace format. Superpowers also documents Antigravity, Devin CLI, OpenCode, Pi, Hermes Agent, and Muse; those use repository installs, packages, or native plugins rather than one of these repository marketplace JSON formats. Their native distribution paths would need separate packaging and validation before claiming support.
 

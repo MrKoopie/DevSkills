@@ -2,6 +2,11 @@
   "version": "2",
   "plugins": [
     {
+      "id": "development",
+      "displayName": "Development",
+      "source": "./plugins/development"
+    },
+    {
       "id": "feedback-triage",
       "displayName": "Feedback Triage",
       "source": "./plugins/feedback-triage"

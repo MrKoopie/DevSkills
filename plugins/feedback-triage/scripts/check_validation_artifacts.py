@@ -8,11 +8,12 @@ from pathlib import Path
 
 
 def check(repo: Path) -> list[str]:
-    command = ["git", "-C", str(repo), "ls-files", "-z", "--", ".ai/triage"]
+    command = ["git", "-C", str(repo), "ls-files", "--full-name", "-z", "--",
+               ":(top).ai/triage", ":(top).ai/work"]
     output = subprocess.run(command, check=True, capture_output=True).stdout
     paths = (raw_path.decode("utf-8", errors="surrogateescape") for raw_path in output.split(b"\0") if raw_path)
 
-    return sorted({path for path in paths if path.startswith(".ai/triage/")})
+    return sorted({path for path in paths if path.startswith((".ai/triage/", ".ai/work/"))})
 
 
 def main(argv: list[str] | None = None) -> int:

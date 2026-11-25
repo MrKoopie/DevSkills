@@ -5,6 +5,11 @@
   },
   "plugins": [
     {
+      "name": "development",
+      "source": "./plugins/development",
+      "description": "Plan, implement, independently review and refactor framework-neutral changes."
+    },
+    {
       "name": "feedback-triage",
       "source": "./plugins/feedback-triage",
       "description": "Validate and prioritize all GitHub PR and GitLab MR feedback."

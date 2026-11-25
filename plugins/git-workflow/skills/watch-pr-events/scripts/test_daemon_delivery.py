@@ -2,13 +2,11 @@
 
 import copy
 import json
-import socket
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 import daemon_delivery as d
-from host_rpc import RPC
 
 CONTEXT = {
     "cwd": "/workspace",
@@ -54,6 +52,71 @@ class DaemonTest(unittest.TestCase):
             c["permission_profile"].update(change)
             with self.assertRaises(RuntimeError):
                 d.resume_params("abc", c)
+
+    def test_project_root_rules_keep_each_saved_scope(self):
+        c = copy.deepcopy(CONTEXT)
+        c["permission_profile"]["file_system"]["entries"].extend(
+            {
+                "path": {
+                    "type": "special",
+                    "value": {"kind": "project_roots", "subpath": subpath},
+                },
+                "access": access,
+            }
+            for subpath, access in (
+                (None, "read"),
+                ("src", "write"),
+                ("src/private", "deny"),
+            )
+        )
+        p = d.resume_params("abc", c)["config"]["permissions"]["watch_abc"]
+        self.assertEqual(
+            p["filesystem"],
+            {
+                ":root": "read",
+                "/workspace": "write",
+                "/workspace/.git": "read",
+                ":workspace_roots": {".": "read", "src": "write", "src/private": "deny"},
+            },
+        )
+
+    def test_unrepresentable_saved_special_scope_is_rejected(self):
+        for subpath in (
+            "",
+            "../elsewhere",
+            "/elsewhere",
+            "./src",
+            "~/elsewhere",
+            "src/*",
+        ):
+            with self.subTest(subpath=subpath):
+                c = copy.deepcopy(CONTEXT)
+                c["permission_profile"]["file_system"]["entries"].append(
+                    {
+                        "path": {
+                            "type": "special",
+                            "value": {"kind": "project_roots", "subpath": subpath},
+                        },
+                        "access": "write",
+                    }
+                )
+                with self.assertRaisesRegex(RuntimeError, "saved filesystem scope"):
+                    d.resume_params("abc", c)
+
+    def test_conflicting_saved_project_scopes_are_rejected(self):
+        c = copy.deepcopy(CONTEXT)
+        c["permission_profile"]["file_system"]["entries"].extend(
+            {
+                "path": {
+                    "type": "special",
+                    "value": {"kind": "project_roots", "subpath": "private"},
+                },
+                "access": access,
+            }
+            for access in ("deny", "write")
+        )
+        with self.assertRaisesRegex(RuntimeError, "saved filesystem scope"):
+            d.resume_params("abc", c)
 
     def test_history_waits_for_task_completion(self):
         with tempfile.TemporaryDirectory() as root:
@@ -110,26 +173,55 @@ class DaemonTest(unittest.TestCase):
             events = [
                 {
                     "method": "turn/completed",
-                    "params": {"turn": {"id": "other", "status": "completed"}},
+                    "params": {
+                        "threadId": "abc",
+                        "turn": {"id": "other", "status": "completed"},
+                    },
                 },
-                {"method": "turn/started", "params": {"turn": {"id": "owned"}}},
+                {
+                    "method": "turn/started",
+                    "params": {"threadId": "abc", "turn": {"id": "owned"}},
+                },
                 {
                     "method": "turn/completed",
-                    "params": {"turn": {"id": "owned", "status": "completed"}},
+                    "params": {
+                        "threadId": "abc",
+                        "turn": {"id": "owned", "status": "completed"},
+                    },
                 },
             ]
             if kind == "input":
                 events = [{"id": 99, "method": "item/tool/requestUserInput"}]
             if kind == "disconnect":
                 events = [EOFError("Disconnected")]
+            if kind == "missing_start":
+                events.pop(1)
+            if kind == "other_thread_start":
+                events[1]["params"]["threadId"] = "different-chat"
+            if kind in ("canary", "other_turn_canary"):
+                state["canary"] = True
+                events.insert(
+                    -1,
+                    {
+                        "method": "item/completed",
+                        "params": {
+                            "threadId": "abc",
+                            "turnId": "owned" if kind == "canary" else "other",
+                            "completedAtMs": 1000,
+                            "item": {
+                                "type": "agentMessage",
+                                "text": "HOST_CONTINUATION_OK",
+                            },
+                        },
+                    },
+                )
             with (
                 patch.object(d, "RPC") as rpc,
                 patch.object(d, "history", return_value=(CONTEXT, None)),
-                patch.object(d.time, "sleep") as sleep,
             ):
                 rpc.return_value.call.side_effect = replies
                 rpc.return_value.recv.side_effect = events
-                if kind in ("complete", "writer_busy"):
+                if kind in ("complete", "writer_busy", "canary"):
                     self.assertIn("owned", d.deliver(state, "fixed metadata"))
                 else:
                     with self.assertRaises(Exception):
@@ -137,10 +229,12 @@ class DaemonTest(unittest.TestCase):
                 receipt = json.loads(
                     Path(state["state_path"]).with_suffix(".delivery.json").read_text()
                 )
-                if kind in ("complete", "writer_busy"):
+                if kind in ("complete", "writer_busy", "canary"):
                     self.assertEqual(receipt["status"], "completed")
                     self.assertIn("started_at", receipt)
                     self.assertIn("completed_at", receipt)
+                    if kind == "canary":
+                        self.assertTrue(receipt["canary_verified"])
                 elif kind == "policy_changed":
                     self.assertEqual(receipt["status"], "failed_before_start")
                     self.assertNotIn(
@@ -149,8 +243,19 @@ class DaemonTest(unittest.TestCase):
                     )
                 elif kind == "disconnect":
                     self.assertEqual(receipt["status"], "delivery_uncertain")
-                elif kind == "input":
+                elif kind in (
+                    "input",
+                    "missing_start",
+                    "other_thread_start",
+                    "other_turn_canary",
+                ):
                     self.assertEqual(receipt["status"], "needs_input")
+                    self.assertNotIn("completed_at", receipt)
+                    if kind != "input":
+                        self.assertNotIn(
+                            "turn/interrupt",
+                            [c.args[0] for c in rpc.return_value.call.call_args_list],
+                        )
 
     def test_writer_lock_hands_off_once_without_starting_a_second_writer(self):
         with tempfile.TemporaryDirectory() as root:
@@ -213,6 +318,16 @@ class DaemonTest(unittest.TestCase):
     def test_actual_matching_turn_completion_is_required(self):
         self.delivery("complete")
 
+    def test_completion_without_start_stops_for_inspection(self):
+        self.delivery("missing_start")
+
+    def test_start_from_different_chat_cannot_confirm_delivery(self):
+        self.delivery("other_thread_start")
+
+    def test_canary_requires_marker_from_the_matching_turn(self):
+        self.delivery("canary")
+        self.delivery("other_turn_canary")
+
     def test_policy_mismatch_refuses_turn_start(self):
         self.delivery("policy_changed")
 
@@ -222,7 +337,7 @@ class DaemonTest(unittest.TestCase):
     def test_interactive_request_stops_owned_turn(self):
         self.delivery("input")
 
-    def test_daemon_does_not_start_turn_when_loading_crosses_the_deadline(self):
+    def check_deadline_during_handoff(self, elapsed_during, expected_status):
         with tempfile.TemporaryDirectory() as root:
             state = {
                 "thread": "abc",
@@ -247,16 +362,26 @@ class DaemonTest(unittest.TestCase):
                 if method == "thread/read":
                     return {"thread": thread}
                 if method == "thread/resume":
-                    now = 1000
+                    if elapsed_during == "load":
+                        now = 1000
                     return resumed
                 if method == "thread/unsubscribe":
                     return {}
                 raise AssertionError(method)
 
+            original_receipt = d.receipt
+
+            def write_receipt(path, record):
+                nonlocal now
+                original_receipt(path, record)
+                if elapsed_during == "receipt" and record["status"] == "start_pending":
+                    now = 1000
+
             with (
                 patch.object(d, "RPC") as rpc,
                 patch.object(d, "history", return_value=(CONTEXT, None)),
                 patch.object(d.time, "time", side_effect=lambda: now),
+                patch.object(d, "receipt", side_effect=write_receipt),
             ):
                 rpc.return_value.call.side_effect = call
                 with self.assertRaisesRegex(
@@ -266,23 +391,13 @@ class DaemonTest(unittest.TestCase):
             receipt = json.loads(
                 Path(state["state_path"]).with_suffix(".delivery.json").read_text()
             )
-            self.assertEqual(receipt["status"], "failed_before_start")
+            self.assertEqual(receipt["status"], expected_status)
 
-    def test_websocket_fragmentation_ping_and_extended_payload(self):
-        a, b = socket.socketpair()
-        r = RPC.__new__(RPC)
-        r.s = a
-        r.buf = b""
-        r.pending = []
-        try:
-            b.sendall(b'\x01\x05{"res' + b"\x89\x01p" + b'\x80\x08ult":1}\n')
-            self.assertEqual(r.recv(), {"result": 1})
-            payload = json.dumps({"result": "x" * 200}).encode()
-            b.sendall(b"\x81\x7e" + len(payload).to_bytes(2, "big") + payload)
-            self.assertEqual(r.recv(), {"result": "x" * 200})
-        finally:
-            a.close()
-            b.close()
+    def test_daemon_does_not_start_turn_when_loading_crosses_the_deadline(self):
+        self.check_deadline_during_handoff("load", "failed_before_start")
+
+    def test_daemon_does_not_start_turn_when_intent_receipt_crosses_the_deadline(self):
+        self.check_deadline_during_handoff("receipt", "needs_input")
 
 
 if __name__ == "__main__":

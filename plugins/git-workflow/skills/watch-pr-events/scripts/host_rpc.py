@@ -24,7 +24,8 @@ class RPC:
         self.s = socket.socket(socket.AF_UNIX)
         self.s.settimeout(30)
         self.s.connect(str(path))
-        self.buf = b""
+        self.buf = bytearray()
+        self.fragments = bytearray()
         self.seq = 0
         self.pending = []
         key = base64.b64encode(os.urandom(16)).decode()
@@ -57,14 +58,38 @@ class RPC:
         )
         self.send({"method": "initialized"})
 
-    def take(self, n):
+    def _fill_buffer(self, n):
         while len(self.buf) < n:
             data = self.s.recv(65536)
             if not data:
                 raise EOFError("Daemon connection closed")
-            self.buf += data
-        data, self.buf = self.buf[:n], self.buf[n:]
-        return data
+            self.buf.extend(data)
+
+    def _read_frame(self):
+        # Leave the frame header buffered if any socket read times out.
+        self._fill_buffer(2)
+        a, b = self.buf[:2]
+        n = b & 127
+        header_end = 2
+        if n == 126:
+            header_end = 4
+            self._fill_buffer(header_end)
+            n = struct.unpack_from("!H", self.buf, 2)[0]
+        elif n == 127:
+            header_end = 10
+            self._fill_buffer(header_end)
+            n = struct.unpack_from("!Q", self.buf, 2)[0]
+        if n > 16 * 1024 * 1024:
+            raise RuntimeError("Oversized local message")
+        payload_start = header_end + (4 if b & 128 else 0)
+        frame_end = payload_start + n
+        self._fill_buffer(frame_end)
+        mask = self.buf[header_end:payload_start]
+        data = self.buf[payload_start:frame_end]
+        del self.buf[:frame_end]
+        if mask:
+            data = bytes(x ^ mask[i % 4] for i, x in enumerate(data))
+        return a, data
 
     def frame(self, payload, opcode=1):
         n = len(payload)
@@ -87,20 +112,8 @@ class RPC:
         self.frame(json.dumps(value).encode())
 
     def _recv(self):
-        fragments = b""
         while True:
-            a, b = self.take(2)
-            n = b & 127
-            if n == 126:
-                n = struct.unpack("!H", self.take(2))[0]
-            elif n == 127:
-                n = struct.unpack("!Q", self.take(8))[0]
-            if n > 16 * 1024 * 1024:
-                raise RuntimeError("Oversized local message")
-            mask = self.take(4) if b & 128 else None
-            data = self.take(n)
-            if mask:
-                data = bytes(x ^ mask[i % 4] for i, x in enumerate(data))
+            a, data = self._read_frame()
             opcode = a & 15
             if opcode == 8:
                 raise EOFError("Daemon WebSocket closed")
@@ -111,8 +124,9 @@ class RPC:
                 continue
             if opcode not in [0, 1]:
                 raise RuntimeError("Unsupported WebSocket message")
-            fragments += data
+            self.fragments.extend(data)
             if a & 128:
+                fragments, self.fragments = self.fragments, bytearray()
                 return json.loads(fragments)
 
     def call(self, method, params):

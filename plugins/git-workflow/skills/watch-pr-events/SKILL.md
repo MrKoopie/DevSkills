@@ -59,6 +59,12 @@ python3 <skill-dir>/scripts/watch.py start \
   --workflow ci-fast --workflow ci-browser
 ```
 
+GitHub Actions runs must match the PR head and be linked to that PR. For a
+workflow the project intentionally runs on a push, pass `--push-workflow NAME`
+to also accept runs from the PR's source repository and branch. When a workflow
+has both a PR-linked run and a push run, the PR run determines its outcome.
+The watcher reuses saved GitHub watches across repository casing variants.
+
 For GitLab, read the `glab` skill first. Pass the hostname, full namespace and
 project path, and project-local MR IID separately. The default host is `gitlab.com`.
 GitLab hostname and project-path casing are normalized when reusing a watch.
@@ -74,7 +80,9 @@ python3 <skill-dir>/scripts/watch.py start \
 GitLab reads paginated discussions, reviewer states and the jobs of the MR's
 `head_pipeline`. Reopened discussions also trigger feedback follow-up. The watcher
 verifies the pipeline against the source SHA, including via
-the source parent of a verified merged-results or merge-train commit. The final
+the source parent of a verified merged-results or merge-train commit. For a
+rewritten train commit, GitLab must confirm the same pipeline and checkout for
+the current MR source SHA. The final
 aggregate pipeline result is reported even when a selected job is missing or
 when feedback arrives in the same poll. With `--job`, readiness requires each
 named job to succeed. Without it, non-optional jobs must succeed or be skipped,
@@ -169,6 +177,9 @@ python3 <skill-dir>/scripts/watch.py cancel --state /absolute/state.json
 `<state>.delivery.json` distinguishes `waiting_for_idle`,
 `queue_pending`, `queued_for_owner`, `start_pending`, `accepted`, `running`, `completed`, `needs_input`,
 `failed_before_start` and `delivery_uncertain`, with timestamps and the turn ID.
+At expiry the dispatcher attempts to remove its own owner-queue submission.
+`queued_submission_deleted` records whether the server removed it. If the
+submission was already absent or cleanup is uncertain, inspect the owning chat.
 A live PID or accepted request is not completion proof. Retain the original state
 and receipt when diagnosing delayed execution. Cancelling the model-free waiter
 while a turn is running does not authorize terminating unrelated work; inspect

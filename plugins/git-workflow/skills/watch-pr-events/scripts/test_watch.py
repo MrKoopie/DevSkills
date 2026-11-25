@@ -313,10 +313,10 @@ class WatchTest(unittest.TestCase):
 
     def test_legacy_github_state_path_is_reused_without_a_provider_marker(self):
         with tempfile.TemporaryDirectory() as root:
-            key = hashlib.sha256(b"owner/repo#2:thread-id").hexdigest()[:24]
+            key = hashlib.sha256(b"Owner/Repo#2:thread-id").hexdigest()[:24]
             path = Path(root) / "pr-watches" / f"{key}.json"
             state = {
-                "repo": "owner/repo",
+                "repo": "Owner/Repo",
                 "number": 2,
                 "thread": "thread-id",
                 "pid": 123,
@@ -363,13 +363,14 @@ class WatchTest(unittest.TestCase):
     ):
         def api(endpoint, pages=False):
             if endpoint.endswith("/pulls/2"):
-                return {"state": "open", "head": {"sha": "a"}}
+                return {"id": 42, "state": "open", "head": {"sha": "a"}}
             if "/actions/runs?" in endpoint:
                 return [
                     {
                         "workflow_runs": [
                             {
                                 "id": 1,
+                                "pull_requests": [{"id": 42}],
                                 "head_sha": "a",
                                 "name": "CI",
                                 "status": "completed",
@@ -658,12 +659,171 @@ class WatchTest(unittest.TestCase):
 
     def test_changed_head_cannot_reuse_a_completed_old_head(self):
         before = snapshot("completed")
-        self.assertIsNone(w.detect(before, snapshot(head="b"), None)[0])
+        new_head = snapshot(head="b")
+        self.assertEqual(w.detect(before, new_head, None)[0]["kind"], "head_changed")
+        self.assertIsNone(w.detect(new_head, new_head, None)[0])
         after = snapshot("completed", head="b")
         _, candidate = w.detect(before, after, None)
         self.assertEqual(
-            w.detect(before, after, candidate)[0]["kind"], "pipelines_completed"
+            w.detect(after, after, candidate)[0]["kind"], "pipelines_completed"
         )
+
+    def test_pending_ci_completion_survives_feedback_and_a_new_worker(self):
+        for first_event in ("feedback", "ci_warnings"):
+            with (
+                self.subTest(first_event=first_event),
+                tempfile.TemporaryDirectory() as root,
+            ):
+                path = Path(root) / "state.json"
+                starting = snapshot()
+                completed = snapshot("completed")
+                completed["runs"]["1"]["conclusion"] = "failure"
+                if first_event == "feedback":
+                    completed["feedback"]["inline:2"] = "new"
+                else:
+                    completed["ci_warnings"] = {"check:1": {"fingerprint": "warning"}}
+                closed = dict(completed, open=False)
+                w.atomic(
+                    path,
+                    {
+                        "interval": 5,
+                        "deadline": 1000,
+                        "delivery": "queue",
+                        "until_ready": True,
+                        "snapshot": starting,
+                    },
+                )
+                with (
+                    patch.object(w.time, "time", return_value=100),
+                    patch.object(w.time, "sleep"),
+                    patch.object(w.signal, "signal"),
+                    patch.object(
+                        w,
+                        "read_watch_snapshot",
+                        side_effect=[completed, completed, closed],
+                    ),
+                    patch.object(w, "notify", return_value="queued") as notify,
+                ):
+                    w.run(path)
+                    w.run(path)
+                self.assertEqual(
+                    [call.args[1]["kind"] for call in notify.call_args_list],
+                    [first_event, "pipelines_completed"],
+                )
+
+    def test_failed_worker_spawn_restores_previous_state_or_allows_a_fresh_retry(self):
+        for action in ("start", "resume"):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as root:
+                path = Path(root) / "state.json"
+                extra = (
+                    [
+                        "--repo",
+                        "owner/repo",
+                        "--number",
+                        "2",
+                        "--thread",
+                        "thread-id",
+                        "--delivery",
+                        "queue",
+                    ]
+                    if action == "start"
+                    else []
+                )
+                prior = None
+                if action == "resume":
+                    prior = {
+                        "status": "queued",
+                        "deadline": 1000,
+                        "until_ready": True,
+                        "repo": "owner/repo",
+                        "number": 2,
+                        "state_path": str(path),
+                        "snapshot": snapshot(),
+                        "delivery": "queue",
+                        "event": {"kind": "feedback"},
+                    }
+                    w.atomic(path, prior)
+                with (
+                    patch.object(
+                        w.sys,
+                        "argv",
+                        ["watch.py", action, "--state", str(path), *extra],
+                    ),
+                    patch.object(w, "alive", return_value=False),
+                    patch.object(w, "read_watch_snapshot", return_value=snapshot()),
+                    patch.object(w, "api", return_value={"login": "me"}),
+                    patch.object(w, "command", return_value="Usage: codex queue"),
+                    patch.object(w.time, "time", return_value=100),
+                    patch.object(
+                        w.subprocess, "Popen", side_effect=OSError("could not spawn")
+                    ),
+                    self.assertRaisesRegex(OSError, "could not spawn"),
+                ):
+                    w.main()
+                self.assertEqual(
+                    json.loads(path.read_text()) if path.exists() else None, prior
+                )
+
+    def test_github_runs_require_pr_association_or_an_explicit_matching_push_workflow(
+        self,
+    ):
+        pull = {
+            "id": 42,
+            "state": "open",
+            "head": {"sha": "a", "ref": "feature", "repo": {"id": 9}},
+        }
+
+        def workflow(
+            run_id,
+            workflow_id,
+            name,
+            event,
+            conclusion,
+            prs=(),
+            repo_id=9,
+            branch="feature",
+        ):
+            return {
+                "id": run_id,
+                "workflow_id": workflow_id,
+                "name": name,
+                "event": event,
+                "head_sha": "a",
+                "head_branch": branch,
+                "head_repository": {"id": repo_id},
+                "pull_requests": list(prs),
+                "status": "completed",
+                "conclusion": conclusion,
+            }
+
+        runs = [
+            workflow(10, 1, "CI", "pull_request", "failure", [{"id": 42}]),
+            workflow(20, 1, "CI", "push", "success"),
+            workflow(30, 1, "CI", "pull_request", "success", [{"id": 99}]),
+            workflow(40, 2, "Push CI", "push", "success"),
+            workflow(50, 2, "Push CI", "push", "success", repo_id=8),
+            workflow(60, 2, "Push CI", "push", "success", branch="other"),
+        ]
+
+        def api(endpoint, pages=False):
+            if endpoint.endswith("/pulls/2"):
+                return pull
+            if "/actions/runs?" in endpoint:
+                return [{"workflow_runs": runs}]
+            return [[]]
+
+        with patch.object(w, "api", side_effect=api):
+            pr_runs = w.read_snapshot("owner/repo", 2, ["CI", "Push CI"], "me")["runs"]
+            self.assertEqual(set(pr_runs), {"10"})
+            explicit_push = w.read_snapshot(
+                "owner/repo",
+                2,
+                ["CI", "Push CI"],
+                "me",
+                push_workflows=["CI", "Push CI"],
+            )["runs"]
+        self.assertEqual(set(explicit_push), {"10", "40"})
+        self.assertEqual(w.latest_runs(explicit_push)["10"]["conclusion"], "failure")
 
     def test_new_reply_and_mutable_summary_edits_trigger_once(self):
         before = snapshot(feedback={"comment:1": "old"})
@@ -683,13 +843,14 @@ class WatchTest(unittest.TestCase):
         def api(endpoint, pages=False):
             calls.append((endpoint, pages))
             if endpoint.endswith("/pulls/2"):
-                return {"state": "open", "head": {"sha": "a"}}
+                return {"id": 42, "state": "open", "head": {"sha": "a"}}
             if "/actions/runs?" in endpoint:
                 return [
                     {
                         "workflow_runs": [
                             {
                                 "id": 1,
+                                "pull_requests": [{"id": 42}],
                                 "head_sha": "a",
                                 "name": "CI",
                                 "status": "completed",
@@ -759,13 +920,14 @@ class WatchTest(unittest.TestCase):
     def test_actions_reads_warning_annotations_on_latest_scoped_successful_run(self):
         def actions_api(endpoint, pages=False):
             if endpoint.endswith("/pulls/2"):
-                return {"state": "open", "head": {"sha": "a"}}
+                return {"id": 42, "state": "open", "head": {"sha": "a"}}
             if "/actions/runs?" in endpoint:
                 return [
                     {
                         "workflow_runs": [
                             {
                                 "id": run,
+                                "pull_requests": [{"id": 42}],
                                 "workflow_id": 44,
                                 "check_suite_id": suite,
                                 "head_sha": sha,

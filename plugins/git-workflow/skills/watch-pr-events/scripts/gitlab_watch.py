@@ -13,10 +13,13 @@ PIPELINE_CONCLUSIONS = {
     "canceled": "cancelled",
     "skipped": "skipped",
 }
+API_ERRORS = (RuntimeError, subprocess.TimeoutExpired, OSError, ValueError)
 
 
-def api(command, host, endpoint, pages=False):
+def api(command, host, endpoint, pages=False, query=None):
     args = ["glab", "api", "--hostname", host]
+    if query is not None:
+        args.extend(["--raw-field", f"query={query}"])
     if not pages:
         return json.loads(command([*args, endpoint]))
     # glab prints one JSON array per page, which may span multiple lines.
@@ -57,7 +60,33 @@ def pipeline_identity(pipeline):
     return tuple(pipeline.get(key) for key in fields) + (group,)
 
 
-def read_pipeline(get, mr, expected):
+def train_pipeline_matches(get, repo, mr, pipeline_id, sha):
+    # GitLab GraphQL resolves headPipeline through diff_head_pipeline, which
+    # checks the pipeline's checkout or original source SHA against diffHeadSha.
+    query = (
+        f"{{ project(fullPath: {json.dumps(repo)}) {{ "
+        f'mergeRequest(iid: "{mr["iid"]}") {{ diffHeadSha headPipeline {{ id sha }} }} '
+        "} }"
+    )
+    try:
+        response = get("graphql", query=query)
+    except API_ERRORS:
+        return False
+    if not isinstance(response, dict) or response.get("errors"):
+        return False
+    try:
+        evidence = response["data"]["project"]["mergeRequest"]
+        head_pipeline = evidence["headPipeline"]
+        return (
+            evidence["diffHeadSha"] == mr["sha"]
+            and head_pipeline["id"] == f"gid://gitlab/Ci::Pipeline/{pipeline_id}"
+            and head_pipeline["sha"] == sha
+        )
+    except (KeyError, TypeError):
+        return False
+
+
+def read_pipeline(get, repo, mr, expected):
     pipeline = mr.get("head_pipeline")
     if not pipeline:
         return {}, {}
@@ -65,21 +94,31 @@ def read_pipeline(get, mr, expected):
     if not isinstance(project, int) or not isinstance(pipeline_id, int):
         raise ValueError("Missing GitLab pipeline identity")
     if sha != mr["sha"]:
-        # Merged-results and merge-train pipelines run a synthetic commit.
-        # Its first parent is the target result and the second must be this source head.
+        train_ref = f'refs/merge-requests/{mr["iid"]}/train'
         if (
-            ref
-            not in (
-                f'refs/merge-requests/{mr["iid"]}/merge',
-                f'refs/merge-requests/{mr["iid"]}/train',
-            )
+            ref not in (f'refs/merge-requests/{mr["iid"]}/merge', train_ref)
             or not isinstance(sha, str)
             or not re.fullmatch(r"[a-f0-9]{40}", sha)
         ):
             return {}, {}
-        commit = get(f"projects/{project}/repository/commits/{sha}")
-        parents = commit.get("parent_ids", [])
-        if commit.get("id") != sha or len(parents) != 2 or parents[1] != mr["sha"]:
+        try:
+            commit = get(f"projects/{project}/repository/commits/{sha}")
+        except API_ERRORS:
+            commit = {}
+        if not isinstance(commit, dict):
+            commit = {}
+        parents = commit.get("parent_ids") or []
+        source_is_parent = (
+            commit.get("id") == sha
+            and isinstance(parents, list)
+            and len(parents) == 2
+            and parents[1] == mr["sha"]
+        )
+        # A train may rebase or squash the source before creating its checkout.
+        if not source_is_parent and (
+            ref != train_ref
+            or not train_pipeline_matches(get, repo, mr, pipeline_id, sha)
+        ):
             return {}, {}
     jobs = get(
         f"projects/{project}/pipelines/{pipeline_id}/jobs?per_page=100", pages=True
@@ -133,8 +172,15 @@ def current_diff_time(get, endpoint, mr):
     refs = mr.get("diff_refs") or {}
     if refs.get("head_sha") != mr["sha"]:
         return None
-    versions = get(f"{endpoint}/versions?per_page=1")
-    if not versions:
+    try:
+        versions = get(f"{endpoint}/versions?per_page=1")
+    except API_ERRORS:
+        return None
+    if (
+        not isinstance(versions, list)
+        or not versions
+        or not isinstance(versions[0], dict)
+    ):
         return None
     version = versions[0]
     if (
@@ -162,7 +208,7 @@ def current_approvals(get, endpoint, mr, votes):
     # include those votes. Check whether current votes alone satisfy each rule.
     try:
         approval_state = get(f"{endpoint}/approval_state")
-    except (RuntimeError, subprocess.TimeoutExpired, OSError, ValueError):
+    except API_ERRORS:
         return {}  # The rule endpoint may be unavailable on this tier.
     rules = approval_state.get("rules") if isinstance(approval_state, dict) else None
     if not isinstance(rules, list):
@@ -187,8 +233,8 @@ def current_approvals(get, endpoint, mr, votes):
 
 
 def snapshot(command, state):
-    def get(endpoint, pages=False):
-        return api(command, state["host"], endpoint, pages)
+    def get(endpoint, pages=False, query=None):
+        return api(command, state["host"], endpoint, pages, query)
 
     endpoint = (
         f'projects/{quote(state["repo"], safe="")}/merge_requests/{state["number"]}'
@@ -274,7 +320,7 @@ def snapshot(command, state):
                 },
             )
     result["runs"], result["ci_warnings"] = read_pipeline(
-        get, mr, state.get("jobs", [])
+        get, state["repo"], mr, state.get("jobs", [])
     )
 
     confirmed = get(endpoint)

@@ -84,14 +84,38 @@ class Tests(unittest.TestCase):
                 "thread/resume", [c.args[0] for c in rpc.call.call_args_list]
             )
 
-    def test_queue_acknowledgement_alone_is_not_success(self):
+    def test_expiry_deletes_only_the_saved_owner_submission(self):
+        for delete_reply, expected_error in (
+            ({"deleted": True}, "removed the pending owner queue submission"),
+            ({"deleted": False}, "owner queue submission was already absent"),
+            ({}, "could not confirm owner queue submission deletion"),
+        ):
+            with self.subTest(delete_reply=delete_reply):
+                self.check_expired_queue_cleanup(delete_reply, expected_error)
+
+    def check_expired_queue_cleanup(self, delete_reply, expected_error):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / "receipt.json"
             record = {}
             rpc = Mock()
-            rpc.call.return_value = {"queuedSubmission": {"id": "queued"}}
-            with patch.object(o.time, "time", side_effect=[999, 999, 1000]):
-                with self.assertRaisesRegex(RuntimeError, "owner message pending"):
+            now = 999
+
+            def call(method, args):
+                nonlocal now
+                if method == "thread/queue/add":
+                    now = 1000
+                    return {"queuedSubmission": {"id": "this-submission"}}
+                self.assertEqual(method, "thread/queue/delete")
+                self.assertEqual(
+                    args, {"threadId": "abc", "queuedSubmissionId": "this-submission"}
+                )
+                saved = json.loads(p.read_text())
+                self.assertEqual(saved["queued_submission_id"], "this-submission")
+                return delete_reply
+
+            rpc.call.side_effect = call
+            with patch.object(o.time, "time", side_effect=lambda: now):
+                with self.assertRaisesRegex(RuntimeError, expected_error):
                     o.deliver(
                         rpc,
                         {"thread": "abc", "deadline": 1000},
@@ -100,7 +124,11 @@ class Tests(unittest.TestCase):
                         p,
                         receipt,
                     )
-            self.assertEqual(json.loads(p.read_text())["status"], "queued_for_owner")
+            saved = json.loads(p.read_text())
+            if "deleted" in delete_reply:
+                self.assertIs(saved["queued_submission_deleted"], delete_reply["deleted"])
+            else:
+                self.assertNotIn("queued_submission_deleted", saved)
             self.assertNotIn("completed_at", record)
 
     def test_expired_delivery_never_adds_an_owner_queue_message(self):
@@ -117,6 +145,32 @@ class Tests(unittest.TestCase):
                     Path(root) / "receipt.json",
                     receipt,
                 )
+            rpc.call.assert_not_called()
+
+    def test_owner_queue_intent_receipt_cannot_outlast_deadline_and_dispatch(self):
+        with tempfile.TemporaryDirectory() as root:
+            p = Path(root) / "receipt.json"
+            rpc = Mock()
+            rpc.call.side_effect = lambda method, _args: self.fail(method)
+            now = 999
+
+            def write_receipt(path, record):
+                nonlocal now
+                receipt(path, record)
+                now = 1000
+
+            with patch.object(o.time, "time", side_effect=lambda: now):
+                with self.assertRaisesRegex(
+                    RuntimeError, "deadline expired before owner queueing"
+                ):
+                    o.deliver(
+                        rpc,
+                        {"thread": "abc", "deadline": 1000},
+                        "test",
+                        {},
+                        p,
+                        write_receipt,
+                    )
             rpc.call.assert_not_called()
 
     def test_queue_disconnect_is_not_retried(self):

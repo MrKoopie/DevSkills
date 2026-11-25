@@ -58,6 +58,8 @@ def deliver(rpc, state, message, record, path, write_receipt):
         marker=marker,
     )
     write_receipt(path, record)
+    if time.time() >= state["deadline"]:
+        raise RuntimeError("Original watch deadline expired before owner queueing")
     # Persist queue intent before the request; a lost reply must never cause a duplicate enqueue.
     result = rpc.call(
         "thread/queue/add",
@@ -105,7 +107,25 @@ def deliver(rpc, state, message, record, path, write_receipt):
                 if state.get("canary"):
                     write_receipt(path.with_suffix(".canary.json"), record)
                 return "Existing chat owner completed turn " + evidence["turn_id"]
-        time.sleep(2)
+        time.sleep(min(2, max(0, state["deadline"] - time.time())))
+    cleanup = rpc.call(
+        "thread/queue/delete",
+        {
+            "threadId": state["thread"],
+            "queuedSubmissionId": record["queued_submission_id"],
+        },
+    )
+    if not isinstance(cleanup, dict) or not isinstance(cleanup.get("deleted"), bool):
+        raise RuntimeError(
+            "Original deadline expired; could not confirm owner queue submission deletion"
+        )
+    deleted = cleanup["deleted"]
+    record["queued_submission_deleted"] = deleted
+    write_receipt(path, record)
+    if deleted:
+        raise RuntimeError(
+            "Original deadline expired; removed the pending owner queue submission"
+        )
     raise RuntimeError(
-        "Original deadline expired with an owner message pending; inspect before retrying"
+        "Original deadline expired; owner queue submission was already absent; inspect the chat before retrying"
     )

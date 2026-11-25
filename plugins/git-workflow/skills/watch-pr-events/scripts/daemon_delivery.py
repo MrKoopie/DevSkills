@@ -54,9 +54,31 @@ def resume_params(thread, context):
     filesystem = {}
     for rule in profile.get("file_system", {}).get("entries", []):
         path = rule["path"]
-        target = path.get("value")
         if path["type"] == "special":
-            target = ":" + target["kind"]
+            special = path["value"]
+            kind = special["kind"]
+            subpath = special.get("subpath")
+            if kind == "project_roots":
+                if subpath is None:
+                    subpath = "."
+                if (
+                    not isinstance(subpath, str)
+                    or not subpath
+                    or Path(subpath).is_absolute()
+                    or ".." in Path(subpath).parts
+                    or subpath == "~"
+                    or subpath.startswith(("./", "~/"))
+                    or any(char in subpath for char in "*?[]")
+                ):
+                    raise RuntimeError("Unsupported saved filesystem scope")
+                scopes = filesystem.setdefault(":workspace_roots", {})
+                access = rule["access"]
+                if scopes.setdefault(subpath, access) != access:
+                    raise RuntimeError("Conflicting saved filesystem scope")
+                continue
+            if subpath is not None:
+                raise RuntimeError("Unsupported saved filesystem scope")
+            target = ":" + kind
         elif path["type"] == "path":
             target = path.get("path")
             if not target or not Path(target).is_absolute():
@@ -147,6 +169,8 @@ def deliver(state, message):
             requested_at=time.time(),
         )
         receipt(path, record)
+        if time.time() >= state["deadline"]:
+            raise NeedsInput("Original watch deadline expired before turn start")
         # Set before sending: an interrupted request is uncertain, never safe to duplicate.
         started = True
         result = rpc.call(
@@ -173,24 +197,29 @@ def deliver(state, message):
                 raise NeedsInput(
                     "Headless turn requires interactive approval, input or unavailable client tools"
                 )
-            if event.get("method") == "item/completed":
-                item = event.get("params", {}).get("item", {})
+            method = event.get("method")
+            params = event.get("params", {})
+            if params.get("threadId") != state["thread"]:
+                continue
+            if method == "item/completed" and params.get("turnId") == turn:
+                item = params.get("item", {})
                 if item.get(
                     "type"
                 ) == "agentMessage" and "HOST_CONTINUATION_OK" in item.get("text", ""):
                     canary_seen = True
-            if (
-                event.get("method") == "turn/started"
-                and event.get("params", {}).get("turn", {}).get("id") == turn
-            ):
+            observed_turn = params.get("turn", {})
+            if observed_turn.get("id") != turn:
+                continue
+            if method == "turn/started":
                 record.update(status="running", started_at=time.time())
                 receipt(path, record)
-            if event.get("method") == "turn/completed":
-                done = event.get("params", {}).get("turn", {})
-                if done.get("id") != turn:
-                    continue
-                if done.get("status") != "completed":
+            elif method == "turn/completed":
+                # The matching turn is terminal and no longer needs an interrupt.
+                turn = None
+                if observed_turn.get("status") != "completed":
                     raise NeedsInput("Headless continuation did not complete")
+                if "started_at" not in record:
+                    raise NeedsInput("Missing matching turn start; inspect the chat")
                 if state.get("canary") and not canary_seen:
                     raise NeedsInput(
                         "Canary turn completed without the expected marker"
@@ -203,7 +232,7 @@ def deliver(state, message):
                 receipt(path, record)
                 if state.get("canary"):
                     receipt(path.with_suffix(".canary.json"), record)
-                return f"Host daemon completed turn {turn}"
+                return f"Host daemon completed turn {record['turn_id']}"
     except (Exception, KeyboardInterrupt, SystemExit) as error:
         record.update(
             status=(

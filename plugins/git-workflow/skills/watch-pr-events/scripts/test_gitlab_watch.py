@@ -4,6 +4,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -66,6 +67,7 @@ class GitLabResponses:
         self.calls = []
         self.confirmation = None
         self.merge_commit = {"id": SYNTHETIC, "parent_ids": [BASE, HEAD]}
+        self.train_evidence = None
 
     def command(self, args):
         assert args[:4] == ["glab", "api", "--hostname", HOST], args
@@ -85,9 +87,20 @@ class GitLabResponses:
                 raise RuntimeError("Approval rule details unavailable")
             return json.dumps(self.approval_state)
         if endpoint == MR + "/versions?per_page=1":
+            if self.version is None:
+                raise subprocess.TimeoutExpired(args, 30)
             return json.dumps([self.version])
         if endpoint == f"projects/71/repository/commits/{SYNTHETIC}":
+            if self.merge_commit is None:
+                raise RuntimeError("Synthetic commit lookup unavailable")
             return json.dumps(self.merge_commit)
+        if endpoint == "graphql":
+            assert args[4] == "--raw-field", args
+            assert 'project(fullPath: "group/subgroup/project")' in args[5], args
+            assert 'mergeRequest(iid: "509")' in args[5], args
+            if self.train_evidence is None:
+                raise RuntimeError("GraphQL unavailable")
+            return json.dumps(self.train_evidence)
         pages = {
             MR + "/reviewers?per_page=100": self.reviewer_pages,
             MR + "/discussions?per_page=100": self.discussion_pages,
@@ -368,6 +381,24 @@ class GitLabWatchTest(unittest.TestCase):
             watch.detect(initial, current, None)[0]["kind"], "pipelines_completed"
         )
 
+    def test_unavailable_diff_version_preserves_feedback_and_pipeline_events(self):
+        responses = GitLabResponses()
+        responses.approve("2026-11-24T12:00:11Z")
+        initial = responses.snapshot()
+        responses.version = None
+        responses.finish_pipeline("failed")
+        responses.discussion_pages = [
+            [{"notes": [{"id": 12, "author": {"username": "reviewer"}, "body": "CI"}]}]
+        ]
+
+        failed = responses.snapshot()
+        event, _ = watch.detect(initial, failed, None)
+        self.assertEqual(event["kind"], "pipelines_completed")
+        self.assertEqual(event["runs"]["42"]["conclusion"], "failure")
+        self.assertEqual(event["records"], ["note:12"])
+        responses.finish_pipeline("success")
+        self.assertFalse(watch.ready(responses.snapshot()))
+
     def test_head_change_ignores_old_pipeline_and_notifies_once(self):
         responses = GitLabResponses()
         responses.finish_pipeline("success")
@@ -391,6 +422,57 @@ class GitLabWatchTest(unittest.TestCase):
         self.assertTrue(watch.ready(responses.snapshot()))
         responses.merge_commit["parent_ids"] = [HEAD, NEXT]
         self.assertEqual(responses.snapshot()["runs"], {})
+
+    def test_rewritten_merge_train_reports_ci_for_provider_confirmed_source_head(self):
+        responses = GitLabResponses()
+        responses.mr["head_pipeline"].update(
+            sha=SYNTHETIC, ref="refs/merge-requests/509/train"
+        )
+        responses.merge_commit["parent_ids"] = [BASE, NEXT]
+        evidence = {
+            "diffHeadSha": HEAD,
+            "headPipeline": {"id": "gid://gitlab/Ci::Pipeline/42", "sha": SYNTHETIC},
+        }
+        responses.train_evidence = {"data": {"project": {"mergeRequest": evidence}}}
+        initial = responses.snapshot()
+        responses.finish_pipeline("failed")
+        responses.job_pages[0].append(
+            {"id": 103, "name": "Optional", "status": "failed", "allow_failure": True}
+        )
+
+        current = responses.snapshot()
+        self.assertIn("42", current["runs"])
+        failed, _ = watch.detect(initial, current, None)
+        self.assertEqual(failed["kind"], "pipelines_completed")
+        self.assertEqual(failed["runs"]["42"]["conclusion"], "failure")
+        self.assertEqual(set(current["ci_warnings"]), {"job:71:103"})
+
+        responses.merge_commit = None
+        self.assertEqual(responses.snapshot()["runs"], current["runs"])
+
+        evidence["diffHeadSha"] = NEXT
+        self.assertEqual(responses.snapshot()["runs"], {})
+        evidence["diffHeadSha"] = HEAD
+        evidence["headPipeline"]["id"] = "gid://gitlab/Ci::Pipeline/43"
+        self.assertEqual(responses.snapshot()["runs"], {})
+        evidence["headPipeline"]["id"] = "gid://gitlab/Ci::Pipeline/42"
+        evidence["headPipeline"]["sha"] = NEXT
+        self.assertEqual(responses.snapshot()["runs"], {})
+
+    def test_unverified_rewritten_train_does_not_hide_feedback(self):
+        responses = GitLabResponses()
+        responses.mr["head_pipeline"].update(
+            sha=SYNTHETIC, ref="refs/merge-requests/509/train"
+        )
+        responses.merge_commit["parent_ids"] = [BASE]
+        initial = responses.snapshot()
+        responses.discussion_pages = [
+            [{"notes": [{"id": 12, "author": {"username": "reviewer"}, "body": "CI"}]}]
+        ]
+        current = responses.snapshot()
+        self.assertEqual(current["runs"], {})
+        event, _ = watch.detect(initial, current, None)
+        self.assertEqual(event["records"], ["note:12"])
 
     def test_inconsistent_head_or_pipeline_status_is_retried_without_an_event(self):
         for field in ("sha", "pipeline"):

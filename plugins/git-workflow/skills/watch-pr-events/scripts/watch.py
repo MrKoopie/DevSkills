@@ -88,7 +88,31 @@ def github_warnings(base, head, suites, runs):
     return warnings
 
 
-def read_snapshot(repo, number, workflows, actor, until_ready=False):
+def github_workflow_source(run, pull, push_workflows):
+    pull_id = pull.get("id")
+    linked = pull_id is not None and any(
+        ref.get("id") == pull_id for ref in run.get("pull_requests") or []
+    )
+    if run.get("event") != "push":
+        return "pr" if linked else None
+    if linked:
+        return "push"
+    head = pull["head"]
+    head_repo = (head.get("repo") or {}).get("id")
+    if (
+        run["name"] in push_workflows
+        and head_repo is not None
+        and (run.get("head_repository") or {}).get("id") == head_repo
+        and head.get("ref")
+        and run.get("head_branch") == head["ref"]
+    ):
+        return "push"
+    return None
+
+
+def read_snapshot(
+    repo, number, workflows, actor, until_ready=False, *, push_workflows=()
+):
     base = f"repos/{repo}"
     pull = api(f"{base}/pulls/{number}")
     closure = {
@@ -139,6 +163,8 @@ def read_snapshot(repo, number, workflows, actor, until_ready=False):
                 ).hexdigest()
     runs = {}
     suites = {}
+    push_runs = set()
+    pr_workflows = set()
     for page in api(
         f'{base}/actions/runs?head_sha={pull["head"]["sha"]}&per_page=100', pages=True
     ):
@@ -147,7 +173,14 @@ def read_snapshot(repo, number, workflows, actor, until_ready=False):
                 workflows and run["name"] not in workflows
             ):
                 continue
+            source = github_workflow_source(run, pull, push_workflows)
+            if source is None:
+                continue
             run_id = str(run["id"])
+            if source == "push":
+                push_runs.add(run_id)
+            else:
+                pr_workflows.add(run.get("workflow_id") or run["name"])
             suites[run_id] = run.get("check_suite_id")
             runs[run_id] = {
                 "name": run["name"],
@@ -156,6 +189,10 @@ def read_snapshot(repo, number, workflows, actor, until_ready=False):
                 "status": run["status"],
                 "conclusion": run.get("conclusion"),
             }
+    for run_id in push_runs:
+        run = runs[run_id]
+        if (run["workflow_id"] or run["name"]) in pr_workflows:
+            del runs[run_id]
     snapshot = {
         "head": pull["head"]["sha"],
         "open": pull["state"] == "open",
@@ -216,13 +253,50 @@ def read_watch_snapshot(state):
         state["workflows"],
         state["actor"],
         state.get("until_ready", False),
+        push_workflows=state.get("push_workflows", ()),
     )
 
 
 def watch_target(state):
     provider = state.get("provider", "github")
-    repo = state["repo"].lower() if provider == "gitlab" else state["repo"]
+    repo = state["repo"].lower()
     return (provider, state.get("host"), repo, state["number"], state["thread"])
+
+
+def watch_path(directory, target):
+    scope = watch_target(target)
+    provider, host, repo, number, thread = scope
+    identity = (
+        f"gitlab:{host}/{repo}!{number}:{thread}"
+        if provider == "gitlab"
+        else f"{repo}#{number}:{thread}"
+    )
+    key = hashlib.sha256(identity.encode()).hexdigest()[:24]
+    canonical = directory / f"{key}.json"
+    if provider != "github":
+        return canonical
+
+    matching = []
+    active = []
+    for path in sorted(directory.glob("*.json")):
+        if not re.fullmatch(r"[0-9a-f]{24}\.json", path.name):
+            continue
+        try:
+            saved = json.loads(path.read_text())
+            if watch_target(saved) != scope:
+                continue
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            continue
+        matching.append(path)
+        if saved.get("status") not in TERMINAL_STATES:
+            active.append(path)
+    if len(active) > 1:
+        raise RuntimeError(
+            "Multiple unfinished states match this watch; inspect them with --state"
+        )
+    if active:
+        return active[0]
+    return canonical if canonical in matching or len(matching) != 1 else matching[0]
 
 
 def latest_runs(runs):
@@ -333,34 +407,42 @@ def detect(previous, current, settled, reported_ready=None):
         }, None
     if current.get("provider") == "gitlab":
         return detect_gitlab(previous, current, settled, reported_ready)
-    if ready(current):
-        signature = readiness_signature(current)
-        if reported_ready != signature:
-            if settled == signature:
-                return {"kind": "approved_and_green"}, None
-            return None, signature
-        # Readiness was already reported. Keep monitoring feedback and closure.
-    changed = sorted(
+    changed_head = current["head"] != previous["head"]
+    records = sorted(
         k for k, v in current["feedback"].items() if previous["feedback"].get(k) != v
     )
-    signature = hashlib.sha256(
-        json.dumps([current["head"], current["runs"]], sort_keys=True).encode()
-    ).hexdigest()
-    if changed:
-        return {"kind": "feedback", "records": changed}, None
-    # Never declare zero workflows complete. Require two observations of the
-    # same complete set to allow GitHub to finish registering queued workflows.
-    if all_complete(current):
-        if (
-            previous["head"] == current["head"]
-            and all_complete(previous)
-            and previous["runs"] == current["runs"]
-        ):
-            return None, None  # already complete when armed / already observed
+    kind, pending = None, None
+    readiness = readiness_signature(current) if ready(current) else None
+    if readiness and readiness != reported_ready:
+        if settled == readiness:
+            kind = "approved_and_green"
+        else:
+            pending = readiness
+    elif all_complete(current):
+        # Require two observations so GitHub can finish registering workflows.
+        signature = hashlib.sha256(
+            json.dumps([current["head"], current["runs"]], sort_keys=True).encode()
+        ).hexdigest()
         if settled == signature:
-            return {"kind": "pipelines_completed", "runs": current["runs"]}, signature
-        return None, signature
-    return None, None
+            kind = "pipelines_completed"
+        elif (
+            changed_head
+            or not all_complete(previous)
+            or previous["runs"] != current["runs"]
+        ):
+            pending = signature
+    if kind is None:
+        kind = "head_changed" if changed_head else "feedback" if records else None
+    if kind is None:
+        return None, pending
+    event = {"kind": kind}
+    if changed_head:
+        event["head_changed"] = True
+    if records:
+        event["records"] = records
+    if kind == "pipelines_completed":
+        event["runs"] = current["runs"]
+    return event, pending
 
 
 def notify(state, event):
@@ -388,10 +470,8 @@ def notify(state, event):
         "closed": f"{request} closed without merging",
     }.get(event["kind"], event["kind"])
     display = target if gitlab else f'{state["repo"]}#{state["number"]}'
-    detail = ""
+    detail = f" The {request} head changed." if event.get("head_changed") else ""
     if gitlab:
-        if event.get("head_changed"):
-            detail += " The MR head changed."
         for run_id, run in event.get("runs", {}).items():
             detail += f' Pipeline {run_id}: {run["pipeline_status"]}.'
     warnings = event.get("ci_warnings", {})
@@ -502,7 +582,7 @@ def run(path):
 
     signal.signal(signal.SIGTERM, stopped)
     signal.signal(signal.SIGINT, stopped)
-    settled = None
+    settled = state.get("pending_confirmation")
     while time.time() < state["deadline"]:
         if not state.get("canary"):
             time.sleep(min(state["interval"], max(0, state["deadline"] - time.time())))
@@ -544,6 +624,10 @@ def run(path):
                     head=current["head"],
                 )
             settled = next_settled
+            if settled is None:
+                state.pop("pending_confirmation", None)
+            else:
+                state["pending_confirmation"] = settled
             state["last_checked"] = time.time()
             state.pop("last_error", None)
             if event:
@@ -643,6 +727,12 @@ def main():
     parser.add_argument(
         "--workflow", action="append", default=[], help="GitHub workflow name"
     )
+    parser.add_argument(
+        "--push-workflow",
+        action="append",
+        default=[],
+        help="Explicitly watch a GitHub workflow triggered by push to the PR source branch",
+    )
     parser.add_argument("--job", action="append", default=[], help="GitLab job name")
     parser.add_argument("--interval", type=int, default=60)
     parser.add_argument("--timeout", type=int)
@@ -688,7 +778,7 @@ def main():
             if not args.repo or not re.fullmatch(rf"{project}(/{project})+", args.repo):
                 parser.error("Provide --repo GROUP[/SUBGROUP]/PROJECT")
             args.repo = args.repo.lower()
-            if args.workflow:
+            if args.workflow or args.push_workflow:
                 parser.error("Use --job for GitLab")
         else:
             if args.host is not None or args.job:
@@ -697,6 +787,8 @@ def main():
                 r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo
             ):
                 parser.error("Provide --repo OWNER/REPO")
+            args.repo = args.repo.lower()
+            args.workflow = list(dict.fromkeys([*args.workflow, *args.push_workflow]))
         if not args.number or args.number < 1:
             parser.error("Provide a positive --number (the MR IID on GitLab)")
         if not args.thread or not re.fullmatch(r"[A-Za-z0-9_-]+", args.thread):
@@ -707,17 +799,11 @@ def main():
     if args.state:
         path = args.state.resolve()
     else:
-        identity = (
-            f"gitlab:{args.host}/{args.repo}!{args.number}:{args.thread}"
-            if gitlab
-            else f"{args.repo}#{args.number}:{args.thread}"
-        )
-        key = hashlib.sha256(identity.encode()).hexdigest()[:24]
-        path = (
+        directory = (
             Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
             / "pr-watches"
-            / f"{key}.json"
         )
+        path = watch_path(directory, target)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with path.with_suffix(".lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -759,6 +845,7 @@ def main():
             if args.action == "start" and (
                 bool(previous.get("until_ready")) != args.until_ready
                 or set(previous["workflows"]) != set(args.workflow)
+                or set(previous.get("push_workflows", [])) != set(args.push_workflow)
                 or bool(previous.get("stop_at_ready")) != args.stop_at_ready
                 or set(previous.get("jobs", [])) != set(args.job)
                 or watch_target(previous) != watch_target(target)
@@ -802,7 +889,7 @@ def main():
                 or previous["status"] != "queued"
             ):
                 raise RuntimeError("Only a delivered until-ready watch can be resumed")
-            state = previous
+            state = previous.copy()
             if time.time() >= state["deadline"]:
                 state["status"] = "expired"
                 atomic(path, state)
@@ -862,6 +949,7 @@ def main():
                 **target,
                 "actor": actor,
                 "workflows": args.workflow,
+                "push_workflows": args.push_workflow,
                 "until_ready": args.until_ready,
             }
             snapshot = read_watch_snapshot(state)
@@ -904,16 +992,27 @@ def main():
             )
             if not Path(state["daemon_socket"]).exists():
                 raise RuntimeError("Start the host daemon before using daemon delivery")
-        state["worker_script"] = str(Path(__file__).resolve())
+        worker_script = str(Path(__file__).resolve())
+        state["worker_script"] = worker_script
+        state.pop("pid", None)
         atomic(path, state)
-        with path.with_suffix(".log").open("a") as log:
-            process = subprocess.Popen(
-                [sys.executable, state["worker_script"], "run", "--state", str(path)],
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-            )
+        process = None
+        try:
+            with path.with_suffix(".log").open("a") as log:
+                process = subprocess.Popen(
+                    [sys.executable, worker_script, "run", "--state", str(path)],
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=log,
+                    start_new_session=True,
+                )
+        except (OSError, ValueError):
+            if process is None:
+                if previous is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    atomic(path, previous)
+            raise
         state["pid"] = process.pid
         atomic(path, state)
         result = {
